@@ -17,7 +17,15 @@ exports.createUser = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = new User({ fname, lname, email, phone, password: hashedPassword });
+        const newUser = new User({ 
+            fname, 
+            lname, 
+            email, 
+            phone, 
+            password: hashedPassword,
+            passwordLastUpdated: Date.now(),
+            passwordHistory: []
+        });
         await newUser.save();
 
         logger.info("[%s] %s created a new user: %s", req.user?.role, req.user?.email, email);

@@ -78,7 +78,7 @@ describe("Authentication Endpoints", () => {
                 });
 
             expect(res.statusCode).toBe(401);
-            expect(res.body.message).toBe("Invalid Password");
+            expect(res.body.message).toBe("Invalid credentials.");
         });
 
         test("should fail to login with a non-existent email", async () => {
@@ -89,8 +89,8 @@ describe("Authentication Endpoints", () => {
                     password: testUserData.password,
                 });
 
-            expect(res.statusCode).toBe(404);
-            expect(res.body.message).toBe("User does not exist.");
+            expect(res.statusCode).toBe(401);
+            expect(res.body.message).toBe("Invalid credentials.");
         });
 
         test("should prevent login if user account is disabled", async () => {
@@ -178,11 +178,11 @@ describe("Authentication Endpoints", () => {
                 .set("Authorization", `Bearer ${authToken}`)
                 .send({
                     oldPassword: "incorrectOldPassword",
-                    newPassword: "newPassword123",
+                    newPassword: "NewPassword@123",
                 });
             
             expect(res.statusCode).toBe(401);
-            expect(res.body.message).toBe("Old password is incorrect.");
+            expect(res.body.message).toBe("Current password is incorrect.");
         });
 
         test("DELETE /api/auth/delete-account › should delete the user account successfully", async () => {
@@ -195,6 +195,218 @@ describe("Authentication Endpoints", () => {
 
             const deletedUser = await User.findOne({ email: testUserData.email });
             expect(deletedUser).toBeNull();
+        });
+    });
+
+    describe("Password Security Features", () => {
+        let authToken;
+
+        beforeEach(async () => {
+            await request(app).post("/api/auth/register").send(testUserData);
+            
+            const loginRes = await request(app)
+                .post("/api/auth/login")
+                .send({
+                    email: testUserData.email,
+                    password: testUserData.password
+                });
+                
+            authToken = loginRes.body.token;
+        });
+
+        describe("Password Reuse Prevention", () => {
+            test("should prevent reusing the same password immediately", async () => {
+                const res = await request(app)
+                    .put("/api/auth/change-password")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send({
+                        oldPassword: testUserData.password,
+                        newPassword: testUserData.password,
+                    });
+                
+                expect(res.statusCode).toBe(400);
+                expect(res.body.message).toBe("This password cannot be used. Please choose a different password.");
+            });
+
+            test("should prevent reusing a previous password", async () => {
+                const password1 = "NewPassword@123";
+                const password2 = "AnotherPassword@456";
+                
+                // Change to password1
+                await request(app)
+                    .put("/api/auth/change-password")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send({
+                        oldPassword: testUserData.password,
+                        newPassword: password1,
+                    });
+
+                // Login with new password
+                const loginRes = await request(app)
+                    .post("/api/auth/login")
+                    .send({ email: testUserData.email, password: password1 });
+                authToken = loginRes.body.token;
+
+                // Change to password2
+                await request(app)
+                    .put("/api/auth/change-password")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send({
+                        oldPassword: password1,
+                        newPassword: password2,
+                    });
+
+                // Login with password2
+                const loginRes2 = await request(app)
+                    .post("/api/auth/login")
+                    .send({ email: testUserData.email, password: password2 });
+                authToken = loginRes2.body.token;
+
+                // Try to change back to original password
+                const res = await request(app)
+                    .put("/api/auth/change-password")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send({
+                        oldPassword: password2,
+                        newPassword: testUserData.password,
+                    });
+                
+                expect(res.statusCode).toBe(400);
+                expect(res.body.message).toBe("This password cannot be used. Please choose a different password.");
+            });
+
+            test("should allow using a new password not in history", async () => {
+                const newPassword = "BrandNewPassword@789";
+                
+                const res = await request(app)
+                    .put("/api/auth/change-password")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send({
+                        oldPassword: testUserData.password,
+                        newPassword: newPassword,
+                    });
+                
+                expect(res.statusCode).toBe(200);
+                expect(res.body.message).toBe("Password changed successfully.");
+            });
+        });
+
+        describe("Password Expiration", () => {
+            test("should prevent login with expired password", async () => {
+                // Manually set password to expired (91 days ago)
+                const expiredDate = new Date();
+                expiredDate.setDate(expiredDate.getDate() - 91);
+                
+                await User.updateOne(
+                    { email: testUserData.email },
+                    { passwordLastUpdated: expiredDate }
+                );
+
+                const res = await request(app)
+                    .post("/api/auth/login")
+                    .send({
+                        email: testUserData.email,
+                        password: testUserData.password,
+                    });
+                
+                expect(res.statusCode).toBe(403);
+                expect(res.body.message).toBe("Your password has expired. Please update your password to continue.");
+                expect(res.body.passwordExpired).toBe(true);
+            });
+
+            test("should allow login with non-expired password", async () => {
+                const res = await request(app)
+                    .post("/api/auth/login")
+                    .send({
+                        email: testUserData.email,
+                        password: testUserData.password,
+                    });
+                
+                expect(res.statusCode).toBe(200);
+                expect(res.body.success).toBe(true);
+            });
+
+            test("should update passwordLastUpdated when changing password", async () => {
+                const userBefore = await User.findOne({ email: testUserData.email });
+                const beforeTime = userBefore.passwordLastUpdated;
+
+                // Wait a bit to ensure timestamp difference
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                await request(app)
+                    .put("/api/auth/change-password")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send({
+                        oldPassword: testUserData.password,
+                        newPassword: "NewPassword@123",
+                    });
+
+                const userAfter = await User.findOne({ email: testUserData.email });
+                const afterTime = userAfter.passwordLastUpdated;
+
+                expect(afterTime.getTime()).toBeGreaterThan(beforeTime.getTime());
+            });
+
+            test("GET /api/auth/check-password-expiration › should return expiration status", async () => {
+                const res = await request(app)
+                    .get("/api/auth/check-password-expiration")
+                    .set("Authorization", `Bearer ${authToken}`);
+
+                expect(res.statusCode).toBe(200);
+                expect(res.body.success).toBe(true);
+                expect(res.body.passwordExpired).toBe(false);
+                expect(res.body.daysUntilExpiration).toBeDefined();
+            });
+
+            test("GET /api/auth/check-password-expiration › should detect expired password", async () => {
+                // Set password to expired
+                const expiredDate = new Date();
+                expiredDate.setDate(expiredDate.getDate() - 91);
+                
+                await User.updateOne(
+                    { email: testUserData.email },
+                    { passwordLastUpdated: expiredDate }
+                );
+
+                const res = await request(app)
+                    .get("/api/auth/check-password-expiration")
+                    .set("Authorization", `Bearer ${authToken}`);
+
+                expect(res.statusCode).toBe(200);
+                expect(res.body.passwordExpired).toBe(true);
+                expect(res.body.message).toBe("Your password has expired. Please change your password.");
+            });
+        });
+
+        describe("Password History Initialization", () => {
+            test("should initialize new users with empty password history", async () => {
+                const user = await User.findOne({ email: testUserData.email });
+                expect(user.passwordHistory).toBeDefined();
+                expect(user.passwordHistory).toEqual([]);
+            });
+
+            test("should initialize new users with passwordLastUpdated", async () => {
+                const user = await User.findOne({ email: testUserData.email });
+                expect(user.passwordLastUpdated).toBeDefined();
+                expect(user.passwordLastUpdated).toBeInstanceOf(Date);
+            });
+
+            test("should add current password to history when changing password", async () => {
+                const userBefore = await User.findOne({ email: testUserData.email });
+                const oldPasswordHash = userBefore.password;
+
+                await request(app)
+                    .put("/api/auth/change-password")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send({
+                        oldPassword: testUserData.password,
+                        newPassword: "NewPassword@123",
+                    });
+
+                const userAfter = await User.findOne({ email: testUserData.email });
+                expect(userAfter.passwordHistory).toContain(oldPasswordHash);
+                expect(userAfter.passwordHistory.length).toBe(1);
+            });
         });
     });
 });

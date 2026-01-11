@@ -4,6 +4,9 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const fs = require("fs");
 const Shop = require("../models/Shop");
+const { checkPasswordHistory, addToPasswordHistory, isPasswordExpired } = require("../utils/passwordUtils");
+const securityLogger = require("../utils/securityLogger");
+
 
 const sendTokenToResponse = (user, statusCode, res, currentShop) =>{
   const token = jwt.sign({id: user._id, role: user.role},process.env.JWT_SECRET,{
@@ -67,6 +70,8 @@ exports.registerUser = async (req, res) => {
       email,
       phone,
       password: hashedPassword,
+      passwordLastUpdated: Date.now(),
+      passwordHistory: []
     });
     await newUser.save();
 
@@ -97,13 +102,15 @@ exports.loginUser = async (req, res) => {
         select: 'fname lname email'
       }})
     if (!getUser) {
-      return res.status(404).json({ 
+      securityLogger.logFailedLogin(email, 'USER_NOT_FOUND');
+      return res.status(401).json({ 
         success: false,
-        message: "User does not exist.",
+        message: "Invalid credentials.",
       });
     }
 
     if(!getUser.isActive){
+      securityLogger.logFailedLogin(email, 'ACCOUNT_DISABLED');
       return res.status(403).json({
         success:false,
         message: "Your account has been disabled. Please contact support."
@@ -112,14 +119,28 @@ exports.loginUser = async (req, res) => {
 
     const checkPassword = await bcrypt.compare(password, getUser.password);
     if (!checkPassword) {
+      securityLogger.logFailedLogin(email, 'INVALID_PASSWORD');
       return res.status(401).json({ 
         success: false,
-        message: "Invalid Password",
+        message: "Invalid credentials.",
+      });
+    }
+
+    // Check if password has expired
+    const expirationDays = parseInt(process.env.PASSWORD_EXPIRATION_DAYS) || 90;
+    if (isPasswordExpired(getUser.passwordLastUpdated, expirationDays)) {
+      securityLogger.logExpiredPasswordLogin(getUser._id.toString(), email);
+      return res.status(403).json({
+        success: false,
+        message: "Your password has expired. Please update your password to continue.",
+        passwordExpired: true
       });
     }
 
     getUser.lastLogin = Date.now();
     await getUser.save({validateBeforeSave:false})
+
+    securityLogger.logSuccessfulLogin(getUser._id.toString(), email);
 
     if(getUser.role === 'admin'){
       sendTokenToResponse(getUser, 200, res, null)
@@ -230,30 +251,62 @@ exports.changePassword = async (req, res) => {
     const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {
+      securityLogger.logPasswordChangeAttempt(userId.toString(), user.email, false, 'INCORRECT_OLD_PASSWORD');
       return res.status(401).json({
         success: false,
-        message: "Old password is incorrect.",
+        message: "Current password is incorrect.",
       });
     }
 
     // Check if new password contains user's first or last name
     const lowerPassword = newPassword.toLowerCase();
     if (user.fname && lowerPassword.includes(user.fname.toLowerCase())) {
+      securityLogger.logPasswordChangeAttempt(userId.toString(), user.email, false, 'CONTAINS_PERSONAL_INFO');
       return res.status(400).json({
         success: false,
-        message: "Password cannot contain your first name.",
+        message: "Password does not meet security requirements.",
       });
     }
     if (user.lname && lowerPassword.includes(user.lname.toLowerCase())) {
+      securityLogger.logPasswordChangeAttempt(userId.toString(), user.email, false, 'CONTAINS_PERSONAL_INFO');
       return res.status(400).json({
         success: false,
-        message: "Password cannot contain your last name.",
+        message: "Password does not meet security requirements.",
       });
     }
 
+    // Check if new password is the same as current password
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrent) {
+      securityLogger.logPasswordReuseAttempt(userId.toString(), user.email);
+      return res.status(400).json({
+        success: false,
+        message: "This password cannot be used. Please choose a different password.",
+      });
+    }
+
+    // Check if new password matches any password in history
+    const historyLimit = parseInt(process.env.PASSWORD_HISTORY_LIMIT) || 5;
+    const isPasswordReused = await checkPasswordHistory(newPassword, user.passwordHistory);
+    
+    if (isPasswordReused) {
+      securityLogger.logPasswordReuseAttempt(userId.toString(), user.email);
+      return res.status(400).json({
+        success: false,
+        message: "This password cannot be used. Please choose a different password.",
+      });
+    }
+
+    // Add current password to history before changing it
+    const updatedHistory = addToPasswordHistory(user.password, user.passwordHistory, historyLimit);
+
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedNewPassword;
+    user.passwordHistory = updatedHistory;
+    user.passwordLastUpdated = Date.now();
     await user.save();
+
+    securityLogger.logPasswordChangeAttempt(userId.toString(), user.email, true);
 
     return res.status(200).json({
       success: true,
@@ -380,6 +433,51 @@ exports.switchShop = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Check if user's password has expired
+ * @route   GET /api/v1/auth/check-password-expiration
+ * @access  Private
+ */
+exports.checkPasswordExpiration = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId);
 
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found."
+      });
+    }
 
+    const expirationDays = parseInt(process.env.PASSWORD_EXPIRATION_DAYS) || 90;
+    const expired = isPasswordExpired(user.passwordLastUpdated, expirationDays);
 
+    if (expired) {
+      return res.status(200).json({
+        success: true,
+        passwordExpired: true,
+        message: "Your password has expired. Please change your password."
+      });
+    }
+
+    // Calculate days until expiration
+    const lastUpdated = new Date(user.passwordLastUpdated);
+    const now = new Date();
+    const daysSinceUpdate = Math.floor((now - lastUpdated) / (1000 * 60 * 60 * 24));
+    const daysUntilExpiration = expirationDays - daysSinceUpdate;
+
+    return res.status(200).json({
+      success: true,
+      passwordExpired: false,
+      daysUntilExpiration: daysUntilExpiration,
+      message: `Your password will expire in ${daysUntilExpiration} days.`
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`
+    });
+  }
+};

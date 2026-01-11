@@ -44,6 +44,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    passwordHistory: [{
+      type: String,
+    }],
+    passwordLastUpdated: {
+      type: Date,
+      default: Date.now
+    },
     profileImage: {
       type:String,
       default:""

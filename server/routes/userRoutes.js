@@ -1,5 +1,5 @@
 const express = require('express')
-const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop } = require('../controllers/authController')
+const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration } = require('../controllers/authController')
 const { registerValidation, loginValidation, changePasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
@@ -69,6 +69,12 @@ router.put(
 router.get(
   "/uploads/:filename", 
   viewProfileImage
+);
+
+router.get(
+  "/check-password-expiration",
+  protect,
+  checkPasswordExpiration
 );
 
 
