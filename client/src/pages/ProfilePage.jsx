@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGetProfile, useUpdateProfile, useUploadProfileImage, useChangePassword } from '../hooks/auth/useProfile';
 import { toast } from 'react-toastify';
-import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown, Lock, KeyRound } from 'lucide-react';
+import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
+import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
 
@@ -45,12 +46,27 @@ const ProfilePage = () => {
   // Password Change Logic
   const { mutate: changePassword, isLoading: isChangingPassword } = useChangePassword();
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
+  const [showPasswordStrength, setShowPasswordStrength] = useState(false);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const handlePasswordChange = (e) => setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
   const validatePassword = (password) => {
-      // Min 8-12 chars, upper, lower, digit, special
-      return /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,12}$/.test(password);
+      // Min 8 chars, upper, lower, digit, special
+      if (!/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/.test(password)) {
+          return false;
+      }
+      // Check if password contains first or last name
+      const lowerPassword = password.toLowerCase();
+      if (user?.fname && lowerPassword.includes(user.fname.toLowerCase())) {
+          return false;
+      }
+      if (user?.lname && lowerPassword.includes(user.lname.toLowerCase())) {
+          return false;
+      }
+      return true;
   };
 
   const handlePasswordSubmit = (e) => {
@@ -64,7 +80,7 @@ const ProfilePage = () => {
           return;
       }
       if (!validatePassword(passwordData.newPassword)) {
-          toast.error("Password must be 8-12 chars with upper, lower, number, and special char.");
+          toast.error("Password must be at least 8 chars with upper, lower, number, special char, and cannot contain your name.");
           return;
       }
       changePassword({
@@ -273,7 +289,7 @@ const ProfilePage = () => {
               </h3>
               <form onSubmit={handlePasswordSubmit} className="space-y-6">
                  <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 text-sm text-orange-800 mb-6">
-                    <strong>Password Requirement:</strong> 8-12 characters, including uppercase, lowercase, number, and special character.
+                    <strong>Password Requirement:</strong> At least 8 characters, including uppercase, lowercase, number, and special character.
                  </div>
 
                   <div>
@@ -281,13 +297,20 @@ const ProfilePage = () => {
                     <div className="relative mt-1">
                       <KeyRound className="absolute w-5 h-5 text-slate-400 transform -translate-y-1/2 left-3 top-1/2" />
                       <input 
-                        type="password" 
+                        type={showOldPassword ? "text" : "password"} 
                         name="oldPassword" 
                         value={passwordData.oldPassword} 
                         onChange={handlePasswordChange}
-                        className="w-full py-2.5 pl-10 pr-3 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
+                        className="w-full py-2.5 pl-10 pr-10 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
                         placeholder="Enter current password"
                        />
+                      <button
+                        type="button"
+                        onClick={() => setShowOldPassword(!showOldPassword)}
+                        className="absolute text-slate-400 transform -translate-y-1/2 right-3 top-1/2 hover:text-slate-600"
+                      >
+                        {showOldPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
                   </div>
 
@@ -297,27 +320,43 @@ const ProfilePage = () => {
                         <div className="relative mt-1">
                           <Lock className="absolute w-5 h-5 text-slate-400 transform -translate-y-1/2 left-3 top-1/2" />
                           <input 
-                            type="password" 
+                            type={showNewPassword ? "text" : "password"} 
                             name="newPassword" 
                             value={passwordData.newPassword} 
                             onChange={handlePasswordChange}
-                            className="w-full py-2.5 pl-10 pr-3 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
+                            onFocus={() => setShowPasswordStrength(true)}
+                            className="w-full py-2.5 pl-10 pr-10 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
                             placeholder="Min 8 chars..."
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute text-slate-400 transform -translate-y-1/2 right-3 top-1/2 hover:text-slate-600"
+                          >
+                            {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
                         </div>
+                        {showPasswordStrength && <PasswordStrengthMeter password={passwordData.newPassword} />}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
                         <div className="relative mt-1">
                           <Lock className="absolute w-5 h-5 text-slate-400 transform -translate-y-1/2 left-3 top-1/2" />
                           <input 
-                            type="password" 
+                            type={showConfirmPassword ? "text" : "password"} 
                             name="confirmNewPassword" 
                             value={passwordData.confirmNewPassword} 
                             onChange={handlePasswordChange}
-                            className="w-full py-2.5 pl-10 pr-3 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
+                            className="w-full py-2.5 pl-10 pr-10 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
                             placeholder="Re-enter new password"
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute text-slate-400 transform -translate-y-1/2 right-3 top-1/2 hover:text-slate-600"
+                          >
+                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
                         </div>
                       </div>
                   </div>

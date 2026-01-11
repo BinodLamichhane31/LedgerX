@@ -1,10 +1,12 @@
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useLoginUser } from '../hooks/auth/useLoginUser';
-import { LogIn, Mail, Lock } from 'lucide-react';
+import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 
 export default function LoginForm() {
   const { mutate, isLoading } = useLoginUser();
+  const [showPassword, setShowPassword] = useState(false);
 
   const initialValues = {
     email: '',
@@ -62,12 +64,19 @@ export default function LoginForm() {
                <div className="relative">
                  <Lock className="absolute text-slate-400 left-4 top-3.5" size={20} />
                  <Field
-                   type="password"
+                   type={showPassword ? "text" : "password"}
                    name="password"
                    placeholder="Password"
                    autoComplete="current-password"
-                   className="w-full py-3 pl-12 pr-4 transition-all border border-slate-200 outline-none rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                   className="w-full py-3 pl-12 pr-12 transition-all border border-slate-200 outline-none rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                  />
+                 <button
+                   type="button"
+                   onClick={() => setShowPassword(!showPassword)}
+                   className="absolute text-slate-400 right-4 top-3.5 hover:text-slate-600"
+                 >
+                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                 </button>
                  <ErrorMessage name="password" component="div" className="mt-1 text-sm text-red-500" />
                </div>
             </div>

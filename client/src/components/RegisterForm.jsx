@@ -8,10 +8,17 @@ import {
   Phone,
   Lock,
   KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import PasswordStrengthMeter from './common/PasswordStrengthMeter';
+import { useState } from 'react';
 
 export default function RegisterForm() {
   const { mutate, isLoading } = useRegisterUser();
+  const [showPasswordStrength, setShowPasswordStrength] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const initialValues = {
     fname: '',
@@ -29,11 +36,18 @@ export default function RegisterForm() {
     phone: Yup.string().required('Phone number is required'),
     password: Yup.string()
       .min(8, 'Password must be at least 8 characters')
-      .max(12, 'Password must be at most 12 characters')
       .matches(
         /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/,
         'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
       )
+      .test('no-name', 'Password cannot contain your first or last name', function(value) {
+        const { fname, lname } = this.parent;
+        if (!value) return true;
+        const lowerPassword = value.toLowerCase();
+        if (fname && lowerPassword.includes(fname.toLowerCase())) return false;
+        if (lname && lowerPassword.includes(lname.toLowerCase())) return false;
+        return true;
+      })
       .required('Password is required'),
     confirmPassword: Yup.string()
       .oneOf([Yup.ref('password')], 'Passwords must match')
@@ -126,21 +140,43 @@ export default function RegisterForm() {
                   <Lock className="absolute text-slate-400 left-4 top-3.5" size={20} />
                   <Field
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Password"
-                    className="w-full py-3 pl-12 pr-4 transition-all border border-slate-200 outline-none rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                    onFocus={() => setShowPasswordStrength(true)}
+                    className="w-full py-3 pl-12 pr-12 transition-all border border-slate-200 outline-none rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute text-slate-400 right-4 top-3.5 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                   <ErrorMessage name="password" component="div" className="mt-1 text-sm text-red-500" />
+                  {showPasswordStrength && (
+                    <Field name="password">
+                      {({ field, form }) => (
+                           <PasswordStrengthMeter password={field.value} />
+                      )}
+                    </Field>
+                  )}
                 </div>
 
                 <div className="relative">
                   <KeyRound className="absolute text-slate-400 left-4 top-3.5" size={20} />
                   <Field
                     name="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm Password"
-                    className="w-full py-3 pl-12 pr-4 transition-all border border-slate-200 outline-none rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                    className="w-full py-3 pl-12 pr-12 transition-all border border-slate-200 outline-none rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute text-slate-400 right-4 top-3.5 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                   <ErrorMessage
                     name="confirmPassword"
                     component="div"

@@ -6,8 +6,18 @@ exports.registerValidation = [
     body("email").isEmail().withMessage("Invalid email format"),
     body("phone").isMobilePhone('ne-NP').withMessage("Invalid phone number."),
     body("password")
-        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,12}$/)
-        .withMessage("Password must be 8–12 characters with uppercase, lowercase, digit, and special character"),
+        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/)
+        .withMessage("Password must be at least 8 characters with uppercase, lowercase, digit, and special character")
+        .custom((value, { req }) => {
+            const lowerPassword = value.toLowerCase();
+            if (req.body.fname && lowerPassword.includes(req.body.fname.toLowerCase())) {
+                throw new Error("Password cannot contain your first name");
+            }
+            if (req.body.lname && lowerPassword.includes(req.body.lname.toLowerCase())) {
+                throw new Error("Password cannot contain your last name");
+            }
+            return true;
+        }),
 ];
 
 exports.loginValidation = [
@@ -18,6 +28,6 @@ exports.loginValidation = [
 exports.changePasswordValidation = [
     body("oldPassword").notEmpty().withMessage("Old password is required"),
     body("newPassword")
-        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,12}$/)
-        .withMessage("Password must be 8–12 characters with uppercase, lowercase, digit, and special character"),
+        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/)
+        .withMessage("Password must be at least 8 characters with uppercase, lowercase, digit, and special character"),
 ];

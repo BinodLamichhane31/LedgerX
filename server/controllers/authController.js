@@ -236,6 +236,21 @@ exports.changePassword = async (req, res) => {
       });
     }
 
+    // Check if new password contains user's first or last name
+    const lowerPassword = newPassword.toLowerCase();
+    if (user.fname && lowerPassword.includes(user.fname.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Password cannot contain your first name.",
+      });
+    }
+    if (user.lname && lowerPassword.includes(user.lname.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Password cannot contain your last name.",
+      });
+    }
+
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedNewPassword;
     await user.save();
