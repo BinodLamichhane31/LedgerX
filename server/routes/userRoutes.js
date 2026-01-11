@@ -1,6 +1,6 @@
 const express = require('express')
 const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop } = require('../controllers/authController')
-const { registerValidation, loginValidation } = require('../validator/authValidator')
+const { registerValidation, loginValidation, changePasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
 const { protect } = require('../middlewares/authMiddleware')
@@ -43,6 +43,7 @@ router.put(
 router.put(
   "/change-password",
   protect,
+  changePasswordValidation,
   validate,
   changePassword
 );

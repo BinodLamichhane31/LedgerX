@@ -6,11 +6,18 @@ exports.registerValidation = [
     body("email").isEmail().withMessage("Invalid email format"),
     body("phone").isMobilePhone('ne-NP').withMessage("Invalid phone number."),
     body("password")
-        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{6,20}$/)
-        .withMessage("Password must be 6–20 characters with uppercase, lowercase, digit, and special character"),
+        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,12}$/)
+        .withMessage("Password must be 8–12 characters with uppercase, lowercase, digit, and special character"),
 ];
 
 exports.loginValidation = [
     body("email").notEmpty().withMessage("Email is required"),
     body("password").notEmpty().withMessage("Password is required"),
+];
+
+exports.changePasswordValidation = [
+    body("oldPassword").notEmpty().withMessage("Old password is required"),
+    body("newPassword")
+        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,12}$/)
+        .withMessage("Password must be 8–12 characters with uppercase, lowercase, digit, and special character"),
 ];

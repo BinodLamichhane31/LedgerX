@@ -4,6 +4,7 @@ export const loginUserApi = (data) => axios.post("/auth/login",data,{withCredent
 export const logoutUserApi = () => axios.post("/auth/logout", {}, { withCredentials: true });
 export const getProfileApi = () => axios.get("/auth/profile", { withCredentials: true });
 export const updateProfileApi = (data) => axios.put("/auth/profile", data, { withCredentials: true });
+export const changePasswordApi = (data) => axios.put("/auth/change-password", data, { withCredentials: true });
 
 export const uploadProfileImageApi = (formData) => {
   return axios.put("/auth/upload-profile-image", formData, {

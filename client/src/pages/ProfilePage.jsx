@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGetProfile, useUpdateProfile, useUploadProfileImage } from '../hooks/auth/useProfile';
+import { useGetProfile, useUpdateProfile, useUploadProfileImage, useChangePassword } from '../hooks/auth/useProfile';
 import { toast } from 'react-toastify';
-import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown } from 'lucide-react';
+import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown, Lock, KeyRound } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
 
@@ -41,6 +41,41 @@ const ProfilePage = () => {
   const [buttonState, setButtonState] = useState('idle');
   const fileInputRef = useRef(null);
   const isPro = profileResponse?.data.subscription?.plan === 'PRO';
+
+  // Password Change Logic
+  const { mutate: changePassword, isLoading: isChangingPassword } = useChangePassword();
+  const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
+  
+  const handlePasswordChange = (e) => setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const validatePassword = (password) => {
+      // Min 8-12 chars, upper, lower, digit, special
+      return /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,12}$/.test(password);
+  };
+
+  const handlePasswordSubmit = (e) => {
+      e.preventDefault();
+      if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmNewPassword) {
+          toast.error("All password fields are required.");
+          return;
+      }
+      if (passwordData.newPassword !== passwordData.confirmNewPassword) {
+          toast.error("New passwords do not match.");
+          return;
+      }
+      if (!validatePassword(passwordData.newPassword)) {
+          toast.error("Password must be 8-12 chars with upper, lower, number, and special char.");
+          return;
+      }
+      changePassword({
+          oldPassword: passwordData.oldPassword,
+          newPassword: passwordData.newPassword
+      }, {
+          onSuccess: () => {
+              setPasswordData({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
+          }
+      });
+  };
 
 
   useEffect(() => {
@@ -229,6 +264,75 @@ const ProfilePage = () => {
                 </motion.button>
               </div>
             </form>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="p-8 bg-white border shadow-lg border-gray-200/80 rounded-2xl shadow-gray-900/5 lg:col-span-2">
+              <h3 className="mb-6 text-xl font-semibold text-gray-700 flex items-center gap-2">
+                <Lock className="w-5 h-5 text-indigo-500" />
+                Security Overhaul
+              </h3>
+              <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                 <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 text-sm text-orange-800 mb-6">
+                    <strong>Password Requirement:</strong> 8-12 characters, including uppercase, lowercase, number, and special character.
+                 </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                    <div className="relative mt-1">
+                      <KeyRound className="absolute w-5 h-5 text-slate-400 transform -translate-y-1/2 left-3 top-1/2" />
+                      <input 
+                        type="password" 
+                        name="oldPassword" 
+                        value={passwordData.oldPassword} 
+                        onChange={handlePasswordChange}
+                        className="w-full py-2.5 pl-10 pr-3 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
+                        placeholder="Enter current password"
+                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">New Password</label>
+                        <div className="relative mt-1">
+                          <Lock className="absolute w-5 h-5 text-slate-400 transform -translate-y-1/2 left-3 top-1/2" />
+                          <input 
+                            type="password" 
+                            name="newPassword" 
+                            value={passwordData.newPassword} 
+                            onChange={handlePasswordChange}
+                            className="w-full py-2.5 pl-10 pr-3 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
+                            placeholder="Min 8 chars..."
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                        <div className="relative mt-1">
+                          <Lock className="absolute w-5 h-5 text-slate-400 transform -translate-y-1/2 left-3 top-1/2" />
+                          <input 
+                            type="password" 
+                            name="confirmNewPassword" 
+                            value={passwordData.confirmNewPassword} 
+                            onChange={handlePasswordChange}
+                            className="w-full py-2.5 pl-10 pr-3 bg-slate-50 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors" 
+                            placeholder="Re-enter new password"
+                          />
+                        </div>
+                      </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <button 
+                      type="submit" 
+                      disabled={isChangingPassword}
+                      className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white transition-colors bg-slate-900 border border-transparent rounded-lg shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70"
+                    >
+                      {isChangingPassword ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
+                      Update Password
+                    </button>
+                  </div>
+              </form>
           </motion.div>
         </div>
       </motion.div>

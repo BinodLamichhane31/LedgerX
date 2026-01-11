@@ -1,4 +1,4 @@
-import { getProfileApi, loginUserApi, logoutUserApi, registerUserApi, updateProfileApi, uploadProfileImageApi } from "../api/authApi";
+import { getProfileApi, loginUserApi, logoutUserApi, registerUserApi, updateProfileApi, uploadProfileImageApi, changePasswordApi } from "../api/authApi";
 
 export const registerUserService = async (formData) =>{
     try {
@@ -59,5 +59,14 @@ export const uploadProfileImageService = async (formData) => {
         return response.data;
     } catch (error) {
         throw error.response?.data || { message: "Failed to upload image" };
+    }
+}
+
+export const changePasswordService = async (passwordData) => {
+    try {
+        const response = await changePasswordApi(passwordData);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: "Failed to change password" };
     }
 }

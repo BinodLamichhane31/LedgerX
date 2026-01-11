@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getProfileService, updateProfileService, uploadProfileImageService } from "../../services/authService";
+import { getProfileService, updateProfileService, uploadProfileImageService, changePasswordService } from "../../services/authService";
+import { toast } from "react-toastify";
 
 export const useGetProfile = () => {
   const token = localStorage.getItem("token"); 
@@ -43,4 +44,16 @@ export const useUploadProfileImage = () => {
       toast.error(error?.message || "Failed to upload image.");
     },
   });
+};
+
+export const useChangePassword = () => {
+    return useMutation({
+        mutationFn: changePasswordService,
+        onSuccess: (response) => {
+            toast.success(response?.message || "Password changed successfully!");
+        },
+        onError: (error) => {
+            toast.error(error?.message || "Failed to change password.");
+        },
+    });
 };

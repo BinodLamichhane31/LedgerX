@@ -27,7 +27,14 @@ export default function RegisterForm() {
     lname: Yup.string().required('Last name is required'),
     email: Yup.string().email('Invalid email').required('Email is required'),
     phone: Yup.string().required('Phone number is required'),
-    password: Yup.string().min(6, 'Minimum 6 characters').required('Password is required'),
+    password: Yup.string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(12, 'Password must be at most 12 characters')
+      .matches(
+        /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/,
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+      )
+      .required('Password is required'),
     confirmPassword: Yup.string()
       .oneOf([Yup.ref('password')], 'Passwords must match')
       .required('Confirm password is required'),
