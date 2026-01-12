@@ -37,7 +37,7 @@ exports.createUser = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = "" } = req.query;
+        const { page = 1, limit = 10, search = "", role, status } = req.query;
 
         const skip = (page - 1) * limit;
         const sortField = req.query.sortField || 'createdAt';
@@ -51,6 +51,16 @@ exports.getAllUsers = async (req, res) => {
                 { email: { $regex: search, $options: 'i' } }
             ]
         };
+
+        if (role) {
+            searchQuery.role = role;
+        }
+
+        if (status) {
+             // status is passed as 'active' or 'inactive' from frontend
+             if (status === 'active') searchQuery.isActive = true;
+             if (status === 'inactive') searchQuery.isActive = false;
+        }
 
         const totalUsers = await User.countDocuments(searchQuery);
         const users = await User.find(searchQuery)
@@ -77,6 +87,79 @@ exports.getAllUsers = async (req, res) => {
         console.log(error);
         return res.status(500).json({ success: false, message: "Server Error"+error });
         
+    }
+};
+
+exports.bulkDeleteUsers = async (req, res) => {
+    try {
+        const { userIds } = req.body; // Array of IDs
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ success: false, message: "No users selected for deletion." });
+        }
+
+        // Security: Filter out requester's own ID
+        const filteredUserIds = userIds.filter(id => id !== req.user.id);
+        
+        if (filteredUserIds.length < userIds.length) {
+             // Optional: Log attempting to delete self
+             logger.warn("[%s] %s attempted to bulk delete self", req.user?.role, req.user?.email);
+        }
+
+        if (filteredUserIds.length === 0) {
+            return res.status(400).json({ success: false, message: "Cannot delete your own account." });
+        }
+
+        const result = await User.deleteMany({ _id: { $in: filteredUserIds } });
+
+        logger.info("[%s] %s bulk deleted %d users", req.user?.role, req.user?.email, result.deletedCount);
+
+        return res.status(200).json({
+            success: true,
+            message: `${result.deletedCount} users deleted successfully.`
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    }
+};
+
+exports.bulkToggleStatus = async (req, res) => {
+    try {
+        const { userIds, status } = req.body; // status: true (active) or false (inactive)
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+             return res.status(400).json({ success: false, message: "No users selected." });
+        }
+        
+        if (typeof status !== 'boolean') {
+             return res.status(400).json({ success: false, message: "Invalid status value." });
+        }
+
+        // Security: Filter out requester's own ID
+        const filteredUserIds = userIds.filter(id => id !== req.user.id);
+
+        if (filteredUserIds.length < userIds.length) {
+            logger.warn("[%s] %s attempted to bulk change status of self", req.user?.role, req.user?.email);
+        }
+
+        if (filteredUserIds.length === 0) {
+            return res.status(400).json({ success: false, message: "Cannot change status of your own account." });
+        }
+
+        const result = await User.updateMany(
+            { _id: { $in: filteredUserIds } },
+            { $set: { isActive: status } }
+        );
+
+        logger.info("[%s] %s bulk updated status for %d users to %s", req.user?.role, req.user?.email, result.modifiedCount, status);
+
+        return res.status(200).json({
+            success: true,
+            message: `${result.modifiedCount} users updated successfully.`
+        });
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Server Error: " + error.message });
     }
 };
 
@@ -112,6 +195,14 @@ exports.getUserById = async (req,res) => {
 
 exports.updateUserByAdmin = async (req, res) => {
   const { fname, lname, phone, role } = req.body;
+  
+  // Security: Prevent updating own role
+  if (req.params.id === req.user.id) {
+       if (role && role !== req.user.role) {
+           return res.status(400).json({ success: false, message: "You cannot change your own role." });
+       }
+  }
+
   try {
     const updated = await User.findByIdAndUpdate(
       req.params.id,
@@ -139,6 +230,10 @@ exports.updateUserByAdmin = async (req, res) => {
 };
 
 exports.deleteUserByAdmin = async (req, res) => {
+  if (req.params.id === req.user.id) {
+      return res.status(400).json({ success: false, message: "You cannot delete your own account." });
+  }
+
   try {
     const deletedUser = await User.findByIdAndDelete(req.params.id);
 
@@ -164,6 +259,10 @@ exports.deleteUserByAdmin = async (req, res) => {
 };
 
 exports.toggleUserStatus = async (req,res) =>{
+    if (req.params.id === req.user.id) {
+        return res.status(400).json({ success: false, message: "You cannot change the status of your own account." });
+    }
+
     try {
         const user = await User.findById(req.params.id)
         if(!user){

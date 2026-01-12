@@ -1,5 +1,5 @@
 import axios from "axios"
-import { createUserApi, deleteUserByAdminApi, getAllUsersApi, getUserByIdApi, toggleUserStatusApi, updateUserByAdminApi, getUserGrowthStatsApi } from "../../api/admin/adminApi"
+import { createUserApi, deleteUserByAdminApi, getAllUsersApi, getUserByIdApi, toggleUserStatusApi, updateUserByAdminApi, getUserGrowthStatsApi, bulkDeleteUsersApi, bulkToggleUserStatusApi } from "../../api/admin/adminApi"
 
 export const getAllUsersService = async (params) => {
     try {
@@ -64,3 +64,21 @@ export const getUserGrowthStatsService = async () => {
         throw error.response?.data?.message || { message: "Failed to fetch user growth stats." };
     }
 };
+
+export const bulkDeleteUsersService = async (userIds) => {
+    try {
+        const response = await bulkDeleteUsersApi(userIds);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data?.message || { message: "Failed to delete users." };
+    }
+}
+
+export const bulkToggleUserStatusService = async (userIds, status) => {
+    try {
+        const response = await bulkToggleUserStatusApi(userIds, status);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data?.message || { message: "Failed to update users status." };
+    }
+}

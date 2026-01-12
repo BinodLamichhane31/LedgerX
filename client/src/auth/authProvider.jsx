@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback, useMemo } from "react";
+import { createContext, useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetShops, useSelectActiveShop } from "../hooks/useShop";
 import { socket } from "../socket";
@@ -7,6 +7,10 @@ import LogoutOverlay from "../components/ui/LogoutOverlay";
 import { toast } from "react-toastify";
 
 export const AuthContext = createContext();
+
+export const useAuthContext = () => {
+    return useContext(AuthContext);
+};
 
 const AuthContextProvider = ({ children }) => {
     const [user, setUser] = useState(null);

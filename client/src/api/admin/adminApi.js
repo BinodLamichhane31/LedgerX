@@ -6,6 +6,8 @@ export const getUserByIdApi = (id) => axios.get(`/admin/users/${id}`)
 export const updateUserByAdminApi = (id, data) => axios.put(`/admin/users/${id}`,data)
 export const deleteUserByAdminApi = (id) => axios.delete(`/admin/users/${id}`)
 export const toggleUserStatusApi = (id) => axios.patch(`/admin/users/${id}/status`)
+export const bulkDeleteUsersApi = (userIds) => axios.post('/admin/users/bulk-delete', { userIds })
+export const bulkToggleUserStatusApi = (userIds, status) => axios.patch('/admin/users/bulk-status', { userIds, status })
 
 
 export const getUserGrowthStatsApi = () => axios.get('/admin/stats/user-growth');

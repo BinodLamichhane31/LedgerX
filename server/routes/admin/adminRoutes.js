@@ -1,6 +1,6 @@
 const express = require('express')
 const { route } = require('../userRoutes')
-const { createUser, getAllUsers, updateUserByAdmin, deleteUserByAdmin, toggleUserStatus, getUserById, getUserGrowthStats } = require('../../controllers/admin/userManagement')
+const { createUser, getAllUsers, updateUserByAdmin, deleteUserByAdmin, toggleUserStatus, getUserById, getUserGrowthStats, bulkDeleteUsers, bulkToggleStatus } = require('../../controllers/admin/userManagement')
 const { registerValidation } = require('../../validator/authValidator')
 const validate = require('../../middlewares/validate')
 const { protect, authorize } = require('../../middlewares/authMiddleware');
@@ -50,6 +50,20 @@ router.patch(
     protect,
     authorize('admin'),
     toggleUserStatus
+)
+
+router.post(
+    '/users/bulk-delete',
+    protect,
+    authorize('admin'),
+    bulkDeleteUsers
+)
+
+router.patch(
+    '/users/bulk-status',
+    protect,
+    authorize('admin'),
+    bulkToggleStatus
 )
 
 router.get(

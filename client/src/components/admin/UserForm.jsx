@@ -1,10 +1,14 @@
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 // Make sure this path is correct for your project structure
-import { useCreateUser, useUpdateUserByAdmin } from '../../hooks/admin/useManageUser'; 
+import { useCreateUser, useUpdateUserByAdmin } from '../../hooks/admin/useManageUser';
+import { useAuthContext } from '../../auth/authProvider'; 
 
 const UserForm = ({ user, onClose }) => {
   const isEditMode = !!user;
+
+  const { user: currentUser } = useAuthContext();
+  const isSelf = isEditMode && user?._id === currentUser?._id;
 
   const { mutate: createUser, isLoading: isCreating } = useCreateUser();
   const { mutate: updateUser, isLoading: isUpdating } = useUpdateUserByAdmin();
@@ -44,7 +48,7 @@ const UserForm = ({ user, onClose }) => {
     // Password fields are not present in the form, so no validation is needed
   });
 
-  const handleSubmit = (values, { setSubmitting }) => {
+  const handleSubmit = (values, { setSubmitting, setStatus }) => {
     // We don't need to check for password in edit mode anymore,
     // as it's not part of the form.
     if (isEditMode) {
@@ -98,10 +102,16 @@ const UserForm = ({ user, onClose }) => {
         </div>
         
         <div>
-            <Field as="select" name="role" className="w-full p-2 border rounded">
+            <Field 
+                as="select" 
+                name="role" 
+                className="w-full p-2 border rounded disabled:bg-gray-100 disabled:cursor-not-allowed"
+                disabled={isSelf}
+            >
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
             </Field>
+            {isSelf && <div className="mt-1 text-xs text-orange-500">You cannot change your own role.</div>}
             <ErrorMessage name="role" component="div" className="mt-1 text-sm text-red-500" />
         </div>
         

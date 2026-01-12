@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createUserService, deleteUserByAdminService, getAllUsersService, getUserByIdService, toggleUserStatusService, updateUserByAdminService, getUserGrowthStatsService } from "../../services/admin/userManagementService"
+import { createUserService, deleteUserByAdminService, getAllUsersService, getUserByIdService, toggleUserStatusService, updateUserByAdminService, getUserGrowthStatsService, bulkDeleteUsersService, bulkToggleUserStatusService } from "../../services/admin/userManagementService"
 import { useState } from "react"
 import { toast } from "react-toastify";
 
@@ -11,15 +11,20 @@ export const useGetAllUsers = () =>{
     const [sortField, setSortField] = useState("createdAt");
     const [sortOrder, setSortOrder] = useState("desc");
 
+    const [role, setRole] = useState("");
+    const [status, setStatus] = useState("");
+
     const query = useQuery(
         {
-            queryKey: ['admin_get_users',pageNumber,pageSize,search,sortField,sortOrder],
+            queryKey: ['admin_get_users',pageNumber,pageSize,search,sortField,sortOrder, role, status],
             queryFn: () => getAllUsersService({
                 page:pageNumber,
                 size:pageSize,
                 search,
                 sortField,
-                sortOrder
+                sortOrder,
+                role,
+                status
             }),
             keepPreviousData: true
         }
@@ -35,7 +40,11 @@ export const useGetAllUsers = () =>{
         sortField,
         setSortField,
         sortOrder,
-        setSortOrder
+        setSortOrder,
+        role,
+        setRole,
+        status,
+        setStatus
     }
 }
 
@@ -78,7 +87,7 @@ export const useUpdateUserByAdmin = () =>{
                 queryClient.invalidateQueries("admin_get_users","admin_get_user_by_id")
             },
             onError: (error)=>{
-                toast(error.message || "Failed to update user.")
+                toast.error(error.message || "Failed to update user.")
             }
         }
     )
@@ -96,7 +105,7 @@ export const useDeleteUserByAdmin = () =>{
                 queryClient.invalidateQueries("admin_get_users")
             },
             onError: (error)=>{
-                toast(error.message || "Failed to delete user.")
+                toast.error(error.message || "Failed to delete user.")
             }
         }
     )
@@ -115,7 +124,7 @@ export const useToggleUserStatus = () =>{
                 queryClient.invalidateQueries("admin_get_users")
             },
             onError: (error)=>{
-                toast(error.message || "Failed to change user status.")
+                toast.error(error.message || "Failed to change user status.")
             }
         }
     )
@@ -127,5 +136,33 @@ export const useGetUserGrowthStats = () => {
         queryKey: ['admin_user_growth_stats'],
         queryFn: getUserGrowthStatsService,
         staleTime: 1000 * 60 * 60, // 1 hour
+    });
+};
+
+export const useBulkDeleteUsers = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: bulkDeleteUsersService,
+        onSuccess: (data) => {
+            toast.success(data.message || "Users deleted successfully.");
+            queryClient.invalidateQueries("admin_get_users");
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to delete users.");
+        }
+    });
+};
+
+export const useBulkToggleUserStatus = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ userIds, status }) => bulkToggleUserStatusService(userIds, status),
+        onSuccess: (data) => {
+            toast.success(data.message || "Users status updated successfully.");
+            queryClient.invalidateQueries("admin_get_users");
+        },
+        onError: (error) => {
+            toast.error(error.message || "Failed to update users status.");
+        }
     });
 };
