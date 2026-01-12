@@ -4,17 +4,20 @@ const { registerValidation, loginValidation, changePasswordValidation } = requir
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
 const { protect } = require('../middlewares/authMiddleware')
+const { verifyRecaptcha } = require('../middlewares/recaptchaMiddleware')
 const upload = require('../middlewares/upload')
 const router = express.Router()
 
 router.post(
     "/register",
+    verifyRecaptcha,
     registerValidation,
     validate,
     registerUser
 )
 
 const loginMiddleware = [
+    verifyRecaptcha,
     loginValidation,
     validate
 ];

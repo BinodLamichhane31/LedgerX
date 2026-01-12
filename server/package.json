@@ -10,22 +10,29 @@
     "seed:delete": "node seeder.js --delete"
   },
   "jest": {
-  "testEnvironment": "node",
-  "setupFilesAfterEnv": ["./jest.setup.js"],
-  "collectCoverage": true,
-  "collectCoverageFrom": [
-    "controllers/**/*.js",
-    "routes/**/*.js",
-    "middlewares/**/*.js",
-    "models/**/*.js",
-    "utils/**/*.js",
-    "!**/node_modules/**",
-    "!**/tests/**",
-    "!**/__mocks__/**"
-  ],
-  "coverageDirectory": "./coverage",
-  "coverageReporters": ["json", "lcov", "text", "clover"]
-},
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "./jest.setup.js"
+    ],
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "controllers/**/*.js",
+      "routes/**/*.js",
+      "middlewares/**/*.js",
+      "models/**/*.js",
+      "utils/**/*.js",
+      "!**/node_modules/**",
+      "!**/tests/**",
+      "!**/__mocks__/**"
+    ],
+    "coverageDirectory": "./coverage",
+    "coverageReporters": [
+      "json",
+      "lcov",
+      "text",
+      "clover"
+    ]
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -34,6 +41,7 @@
     "@faker-js/faker": "^9.9.0",
     "@google/generative-ai": "^0.24.1",
     "@pinecone-database/pinecone": "^6.1.2",
+    "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
     "cookie-parser": "^1.4.7",
