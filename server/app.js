@@ -20,6 +20,7 @@ const cashRoutes = require("./routes/cashRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const botRoutes = require("./routes/botRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const globalLimiter = require("./middlewares/rateLimiter").globalLimiter;
 
 const app = express();
 
@@ -34,6 +35,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+
+//Global Rate Limit
+app.use(globalLimiter);
 
 app.use("/api/uploads", express.static(path.join(__dirname, 'uploads')));
 
