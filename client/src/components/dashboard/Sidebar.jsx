@@ -3,7 +3,7 @@
 import { useContext, useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Package, Truck, ShieldCheck, UserCog, Logs, LogOut,
+  LayoutDashboard, Users, Package, Truck, ShieldCheck, UserCog, LogOut,
   ReceiptText, ShoppingBag, History, Crown,
   Store
 } from 'lucide-react';
@@ -128,7 +128,7 @@ const Sidebar = () => {
   const adminLinks = [
     { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/admin/users", label: "User Management", icon: UserCog },
-    { to: "/admin/system-logs", label: "System Logs", icon: Logs },
+    { to: "/admin/activity-logs", label: "Activity Logs", icon: ShieldCheck },
   ];
 
   return (

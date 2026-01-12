@@ -14,7 +14,8 @@ import UserManagement from "../pages/admin/UserManagement";
 import NotFound from "../pages/NotFound";
 import { AuthContext } from "../auth/authProvider";
 import { useContext } from "react";
-import SystemLogsPage from "../pages/admin/SystemLogs";
+
+import ActivityLogs from "../pages/admin/ActivityLogs";
 import FullPageLoader from "../components/ui/FullPageLoader";
 import CreateFirstShop from "../pages/user/CreateFirstShop";
 import SupplierManagementPage from "../pages/user/SupplierManagementPage";
@@ -109,7 +110,7 @@ function AppRouter() {
           <Route element={<DashboardLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboard/>} />
             <Route path="/admin/users" element={<UserManagement />} />
-            <Route path="/admin/system-logs" element={<SystemLogsPage />} />
+            <Route path="/admin/activity-logs" element={<ActivityLogs />} />
           </Route>
         </Route>
 
