@@ -1,5 +1,5 @@
 import axios from "axios"
-import { createUserApi, deleteUserByAdminApi, getAllUsersApi, getUserByIdApi, toggleUserStatusApi, updateUserByAdminApi } from "../../api/admin/adminApi"
+import { createUserApi, deleteUserByAdminApi, getAllUsersApi, getUserByIdApi, toggleUserStatusApi, updateUserByAdminApi, getUserGrowthStatsApi } from "../../api/admin/adminApi"
 
 export const getAllUsersService = async (params) => {
     try {
@@ -51,8 +51,16 @@ export const deleteUserByAdminService = async(id) =>{
 export const toggleUserStatusService = async(id) =>{
    try {
      const response = await toggleUserStatusApi(id)
-     return response.data
    } catch (error) {
         throw error.response?.data.message || {message:"Failed to toggle user status."}
    }
 }
+
+export const getUserGrowthStatsService = async () => {
+    try {
+        const response = await getUserGrowthStatsApi(); // I will define this next
+        return response.data;
+    } catch (error) {
+        throw error.response?.data?.message || { message: "Failed to fetch user growth stats." };
+    }
+};

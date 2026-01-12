@@ -126,6 +126,7 @@ const Sidebar = () => {
   ];
 
   const adminLinks = [
+    { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/admin/users", label: "User Management", icon: UserCog },
     { to: "/admin/system-logs", label: "System Logs", icon: Logs },
   ];

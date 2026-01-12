@@ -27,11 +27,24 @@ describe("Admin User Management Endpoints", () => {
     };
 
     beforeEach(async () => {
-        await request(app).post("/api/auth/register").send(adminData);
+        const registerRes = await request(app).post("/api/auth/register").send(adminData);
+        if (registerRes.statusCode !== 201) {
+            console.log("Register failed:", registerRes.body);
+        }
+        expect(registerRes.statusCode).toBe(201);
+
         await User.updateOne({ email: adminData.email }, { $set: { role: 'admin' } });
+        
         const loginRes = await request(app)
             .post("/api/auth/login")
             .send({ email: adminData.email, password: adminData.password });
+        
+        if (loginRes.statusCode !== 200) {
+             console.log("Login failed status:", loginRes.statusCode);
+             console.log("Login failed body:", JSON.stringify(loginRes.body, null, 2));
+        }
+        expect(loginRes.statusCode).toBe(200);
+
         adminToken = loginRes.body.token;
         expect(loginRes.body.data.user.role).toBe('admin');
     });
@@ -106,5 +119,18 @@ describe("Admin User Management Endpoints", () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.data.fname).toBe("UpdatedFirstName");
         expect(res.body.data.role).toBe("admin");
+    });
+
+    test("GET /api/admin/stats/user-growth › should return growth statistics", async () => {
+        const res = await request(app)
+            .get("/api/admin/stats/user-growth")
+            .set("Authorization", `Bearer ${adminToken}`);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data)).toBe(true);
+        expect(res.body.data.length).toBe(30);
+        expect(res.body.data[0]).toHaveProperty('date');
+        expect(res.body.data[0]).toHaveProperty('users');
     });
 });

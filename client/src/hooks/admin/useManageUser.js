@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createUserService, deleteUserByAdminService, getAllUsersService, getUserByIdService, toggleUserStatusService, updateUserByAdminService } from "../../services/admin/userManagementService"
+import { createUserService, deleteUserByAdminService, getAllUsersService, getUserByIdService, toggleUserStatusService, updateUserByAdminService, getUserGrowthStatsService } from "../../services/admin/userManagementService"
 import { useState } from "react"
 import { toast } from "react-toastify";
 
@@ -103,6 +103,7 @@ export const useDeleteUserByAdmin = () =>{
 
 }
 
+
 export const useToggleUserStatus = () =>{
     const queryClient = useQueryClient()
     return useMutation(
@@ -120,3 +121,11 @@ export const useToggleUserStatus = () =>{
     )
 
 }
+
+export const useGetUserGrowthStats = () => {
+    return useQuery({
+        queryKey: ['admin_user_growth_stats'],
+        queryFn: getUserGrowthStatsService,
+        staleTime: 1000 * 60 * 60, // 1 hour
+    });
+};

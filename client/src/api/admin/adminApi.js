@@ -7,3 +7,5 @@ export const updateUserByAdminApi = (id, data) => axios.put(`/admin/users/${id}`
 export const deleteUserByAdminApi = (id) => axios.delete(`/admin/users/${id}`)
 export const toggleUserStatusApi = (id) => axios.patch(`/admin/users/${id}/status`)
 
+
+export const getUserGrowthStatsApi = () => axios.get('/admin/stats/user-growth');

@@ -2,13 +2,16 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, FileText, LayoutDashboard, Component, Settings } from 'lucide-react';
 import StatCard from '../../components/dashboard/StatCard';
-import { useGetAllUsers } from '../../hooks/admin/useManageUser';
+import { useGetAllUsers, useGetUserGrowthStats } from '../../hooks/admin/useManageUser';
 import { Link } from 'react-router-dom';
+import UserGrowthChart from '../../components/dashboard/UserGrowthChart';
+import RecentActivity from '../../components/dashboard/RecentActivity';
 
 const AdminDashboard = () => {
     // We can use the existing hook to get user count from pagination/metadata if available, 
     // or just list length for now.Ideally we'd have a specific stats endpoint.
     const { data: userData, isLoading: isLoadingUsers } = useGetAllUsers();
+    const { data: userGrowthData, isLoading: isLoadingGrowth } = useGetUserGrowthStats();
     
     // Placeholder values since we might not have a dedicated stats endpoint yet
     const systemHealth = "Operational"; 
@@ -49,7 +52,18 @@ const AdminDashboard = () => {
                         {/* Placeholders for future stats */}
                         <StatCard icon={Component} title="Active Modules" value={4} isLoading={false} />
                          <StatCard icon={Settings} title="Version" value="v1.0.0" isLoading={false} />
+                         <StatCard icon={Settings} title="Version" value="v1.0.0" isLoading={false} />
                     </motion.div>
+
+                    {/* Charts and Activity Grid */}
+                    <div className="grid grid-cols-1 gap-8 mt-8 lg:grid-cols-3">
+                        <div className="lg:col-span-2">
+                             <UserGrowthChart data={userGrowthData?.data} isLoading={isLoadingGrowth} />
+                        </div>
+                        <div>
+                             <RecentActivity />
+                        </div>
+                    </div>
 
                     <motion.div variants={itemVariants} className="grid grid-cols-1 gap-8 mt-8 lg:grid-cols-2">
                         {/* Quick Actions / Navigation Card */}

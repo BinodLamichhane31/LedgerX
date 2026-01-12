@@ -3,6 +3,7 @@ import DashboardLayout from "../layouts/DashboardLayout";
 import PublicLayout from "../layouts/PublicLayout";
 import PrivateRoute from "./PrivateRoute";
 import AdminRoute from "./AdminRoute";
+import RoleBasedRoute from "./RoleBasedRoute";
 import LandingPage from "../pages/Landing";
 import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignupPage";
@@ -75,7 +76,8 @@ function AppRouter() {
         </Route>
 
         {/* ---------------- PRIVATE USER ROUTES ---------------- */}
-        <Route element={<PrivateRoute />}>
+        {/* ---------------- PRIVATE USER ROUTES ---------------- */}
+        <Route element={<RoleBasedRoute allowedRoles={['user']} />}>
           {/* Routes WITH the Dashboard Layout */}
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<UserDashboard />} />
@@ -99,12 +101,11 @@ function AppRouter() {
 
           {/* Route WITHOUT the Dashboard Layout (but still private) */}
           <Route path="/create-first-shop" element={<CreateFirstShop />} />
-          <Route path="/payment/success" element={<PaymentStatusPage />} />
           <Route path="/payment/failure" element={<PaymentStatusPage />} />
         </Route>
 
         {/* ----------------- PRIVATE ADMIN ROUTES ----------------- */}
-        <Route element={<AdminRoute />}>
+        <Route element={<RoleBasedRoute allowedRoles={['admin']} />}>
           <Route element={<DashboardLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboard/>} />
             <Route path="/admin/users" element={<UserManagement />} />

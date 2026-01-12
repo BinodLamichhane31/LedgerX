@@ -196,3 +196,50 @@ exports.toggleUserStatus = async (req,res) =>{
 
 
 
+exports.getUserGrowthStats = async (req, res) => {
+    try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const stats = await User.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: thirtyDaysAgo }
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { _id: 1 }
+            }
+        ]);
+
+        // Fill in missing dates with 0 counts
+        const filledStats = [];
+        for (let i = 0; i < 30; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() - (29 - i));
+            const dateString = date.toISOString().split('T')[0];
+            
+            const found = stats.find(s => s._id === dateString);
+            filledStats.push({
+                date: dateString,
+                users: found ? found.count : 0
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: filledStats
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Server Error: " + error.message
+        });
+    }
+};
