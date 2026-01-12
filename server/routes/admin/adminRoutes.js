@@ -3,8 +3,10 @@ const { route } = require('../userRoutes')
 const { createUser, getAllUsers, updateUserByAdmin, deleteUserByAdmin, toggleUserStatus, getUserById } = require('../../controllers/admin/userManagement')
 const { registerValidation } = require('../../validator/authValidator')
 const validate = require('../../middlewares/validate')
-const { protect, authorize } = require('../../middlewares/authMiddleware')
-const router = express.Router()
+const { protect, authorize } = require('../../middlewares/authMiddleware');
+const { adminLimiter } = require('../../middlewares/rateLimiter');
+const router = express.Router();
+router.use(adminLimiter);
 
 router.post(
     '/users',

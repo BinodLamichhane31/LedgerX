@@ -23,6 +23,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const globalLimiter = require("./middlewares/rateLimiter").globalLimiter;
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));

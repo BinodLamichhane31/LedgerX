@@ -3,6 +3,7 @@ const { registerUser, loginUser, getProfile, updateProfile, changePassword, dele
 const { registerValidation, loginValidation, changePasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
+const { authLimiter } = require('../middlewares/rateLimiter')
 const { protect } = require('../middlewares/authMiddleware')
 const { verifyRecaptcha } = require('../middlewares/recaptchaMiddleware')
 const upload = require('../middlewares/upload')
@@ -17,6 +18,7 @@ router.post(
 )
 
 const loginMiddleware = [
+    authLimiter,
     verifyRecaptcha,
     loginValidation,
     validate

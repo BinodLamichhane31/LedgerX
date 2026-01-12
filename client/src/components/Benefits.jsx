@@ -27,7 +27,7 @@ const itemVariants = {
 };
 
 const Benefits = () => (
-  <section id="benefits" className="px-4 py-32 bg-white sm:px-8 md:px-16">
+  <section id="benefits" className="px-4 py-20 bg-slate-50 sm:px-8 md:px-16 overflow-hidden">
     <div className="max-w-screen-xl mx-auto">
       <div className="text-center">
         <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl font-heading">
@@ -39,16 +39,15 @@ const Benefits = () => (
       </div>
 
       <motion.div
-        className="grid grid-cols-1 gap-8 mt-20 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid grid-cols-1 gap-8 mt-16 sm:grid-cols-2 lg:grid-cols-3"
         variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
+        initial="visible"
+        animate="visible"
       >
         {benefits.map((benefit, i) => (
           <motion.div
             key={i}
-            className="group p-8 transition-all duration-300 border bg-slate-50 border-slate-100 rounded-3xl hover:bg-white hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1"
+            className="group p-8 transition-all duration-300 border bg-white border-slate-100 rounded-3xl hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1"
             variants={itemVariants}
           >
             <div className="inline-flex items-center justify-center w-12 h-12 mb-6 text-indigo-600 rounded-xl bg-indigo-50 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">

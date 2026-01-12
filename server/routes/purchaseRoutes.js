@@ -1,9 +1,12 @@
 const express = require('express');
 
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, authorize } = require('../middlewares/authMiddleware');
+const validate = require('../middlewares/validate');
+const { transactionLimiter } = require('../middlewares/rateLimiter');
 const { createPurchase, getPurchases, cancelPurchase, recordPaymentForPurchase, getPurchaseById } = require('../controllers/purchaseController');
 
 const router = express.Router();
+router.use(transactionLimiter);
 
 router.post(
     "/",

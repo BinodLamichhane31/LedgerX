@@ -1,9 +1,11 @@
 const express = require('express')
-const { protect } = require('../middlewares/authMiddleware')
+const { protect } = require("../middlewares/authMiddleware");
+const { inventoryLimiter } = require('../middlewares/rateLimiter');
 const { createShop, getShops, getShopById, updateShop, deleteShop } = require('../controllers/shopController')
 const { switchShop } = require('../controllers/authController')
 const { getTransactions } = require('../controllers/saleController')
-const router = express.Router()
+const router = express.Router();
+router.use(inventoryLimiter);
 
 router.post(
     "/",

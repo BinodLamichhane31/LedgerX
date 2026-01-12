@@ -7,9 +7,12 @@ const {
     cancelSale,
     getTransactions
 } = require('../controllers/saleController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, authorize } = require('../middlewares/authMiddleware');
+const validate = require('../middlewares/validate');
+const { transactionLimiter } = require('../middlewares/rateLimiter');
 
 const router = express.Router();
+router.use(transactionLimiter);
 
 router.post(
     "/",

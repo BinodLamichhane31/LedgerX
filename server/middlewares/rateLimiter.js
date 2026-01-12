@@ -1,12 +1,56 @@
 const rateLimit = require('express-rate-limit');
 
-exports.globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 300,
-    message: 'Too many requests from this IP, please try again after 15 minutes.',
-    handler: (req, res, next) => {
-        res.status(429).json({ success: false, message: 'Too many requests. Please try again after 15 minutes.' });
-    },
-    standardHeaders: true,
-    legacyHeaders: false,   
-})
+const createLimiter = (windowMs, max, message, keyGenerator) => {
+    return rateLimit({
+        windowMs,
+        max,
+        message,
+        handler: (req, res, next) => {
+            res.status(429).json({ success: false, message: message || 'Too many requests. Please try again later.' });
+        },
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: keyGenerator || ((req) => req.ip),
+    });
+};
+
+exports.globalLimiter = createLimiter(
+    15 * 60 * 1000, 
+    300, 
+    'Too many requests from this IP, please try again after 15 minutes.'
+);
+
+exports.authLimiter = createLimiter(
+    15 * 60 * 1000,
+    5,
+    'Too many login attempts. Please try again after 15 minutes.',
+    (req) => `${req.ip}_${req.body.email || ''}`
+);
+
+exports.transactionLimiter = createLimiter(
+    10 * 60 * 1000,
+    100,
+    'Transaction limit exceeded. Please try again after 10 minutes.',
+    (req) => req.user ? req.user._id.toString() : req.ip
+);
+
+exports.inventoryLimiter = createLimiter(
+    10 * 60 * 1000,
+    120,
+    'Inventory operation limit exceeded. Please try again after 10 minutes.',
+    (req) => req.user ? req.user._id.toString() : req.ip
+);
+
+exports.reportLimiter = createLimiter(
+    10 * 60 * 1000,
+    20,
+    'Report generation limit exceeded. Please try again after 10 minutes.',
+    (req) => req.user ? req.user._id.toString() : req.ip
+);
+
+exports.adminLimiter = createLimiter(
+    15 * 60 * 1000,
+    300,
+    'Admin API limit exceeded. Please try again after 15 minutes.',
+    (req) => req.user ? req.user._id.toString() : req.ip
+);

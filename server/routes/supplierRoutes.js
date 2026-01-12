@@ -1,7 +1,9 @@
 const express = require("express");
 const { protect } = require("../middlewares/authMiddleware");
+const { inventoryLimiter } = require('../middlewares/rateLimiter');
 const { addSupplier, getSuppliersByShop, getSupplierById, updateSupplier, deleteSupplier } = require("../controllers/supplierController");
 const router = express.Router()
+router.use(inventoryLimiter);
 
 router.post(
     "/",
