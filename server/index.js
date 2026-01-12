@@ -4,6 +4,7 @@ const { Server } = require("socket.io");
 const app = require('./app'); 
 const connectDB = require('./config/db');
 const { initScheduledJobs } = require('./services/scheduler');
+const startLogCleanupJob = require('./jobs/logCleanup');
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ io.on('connection', (socket) => {
 server.listen(PORT, '0.0.0.0',() => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
     initScheduledJobs(io); 
+    startLogCleanupJob(); 
 });
 
 

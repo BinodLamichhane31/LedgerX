@@ -7,7 +7,7 @@ const dotenv = require('dotenv');
 dotenv.config();   
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/admin/adminRoutes");
-const logRoutes = require("./routes/admin/systemLogRoutes");
+
 const shopRoutes = require("./routes/shopRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const supplierRoutes = require("./routes/supplierRoutes");
@@ -43,8 +43,7 @@ app.use(globalLimiter);
 app.use("/api/uploads", express.static(path.join(__dirname, 'uploads')));
 
 app.use("/api/auth", userRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/admin", logRoutes); 
+app.use("/api/admin", adminRoutes); 
 app.use("/api/shops", shopRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/suppliers", supplierRoutes);
