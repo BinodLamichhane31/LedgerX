@@ -117,8 +117,27 @@ exports.loginUser = async (req, res) => {
       })
     }
 
+    if (getUser.lockUntil && getUser.lockUntil > Date.now()) {
+      securityLogger.logFailedLogin(email, 'ACCOUNT_LOCKED');
+      return res.status(429).json({
+        success: false,
+        message: "Account is temporarily locked. Please try again later."
+      });
+    }
+
     const checkPassword = await bcrypt.compare(password, getUser.password);
     if (!checkPassword) {
+      // Increment failed attempts
+      getUser.failedLoginAttempts += 1;
+
+      // Check if should lock
+      if (getUser.failedLoginAttempts >= 5) {
+        getUser.lockUntil = Date.now() + 15 * 60 * 1000; // 15 minutes
+        getUser.failedLoginAttempts = 0;
+      }
+      
+      await getUser.save({ validateBeforeSave: false });
+
       securityLogger.logFailedLogin(email, 'INVALID_PASSWORD');
       return res.status(401).json({ 
         success: false,
@@ -138,6 +157,8 @@ exports.loginUser = async (req, res) => {
     }
 
     getUser.lastLogin = Date.now();
+    getUser.failedLoginAttempts = 0;
+    getUser.lockUntil = undefined;
     await getUser.save({validateBeforeSave:false})
 
     securityLogger.logSuccessfulLogin(getUser._id.toString(), email);

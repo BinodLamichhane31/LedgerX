@@ -80,6 +80,13 @@ const userSchema = new mongoose.Schema(
     activeShop: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Shop'
+    },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0
+    },
+    lockUntil: {
+      type: Date
     }
   },
   {
