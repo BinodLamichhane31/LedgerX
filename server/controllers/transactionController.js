@@ -1,5 +1,6 @@
 const Transaction = require('../models/Transaction');
 const Shop = require('../models/Shop');
+const { logActivity } = require('../services/activityLogger');
 
 const verifyShopOwner = async (shopId, userId) => {
     const shop = await Shop.findById(shopId);
@@ -43,6 +44,19 @@ exports.createTransaction = async (req, res) => {
             description,
             transactionDate,
             createdBy: req.user._id,
+        });
+
+        await logActivity({
+            req,
+            action: 'CREATE_TRANSACTION',
+            module: 'Transactions',
+            userId: req.user._id,
+            metadata: { 
+                transactionId: newTransaction._id, 
+                amount: newTransaction.amount,
+                type: newTransaction.type,
+                shopId: shopId
+            }
         });
 
         res.status(201).json({

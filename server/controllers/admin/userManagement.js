@@ -1,6 +1,7 @@
 const User = require("../../models/User");
 const bcrypt = require("bcrypt");
 const logger = require("../../utils/logger");
+const { logActivity } = require("../../services/activityLogger");
 
 exports.createUser = async (req, res) => {
     const { fname, lname, email, phone, password } = req.body;
@@ -28,7 +29,13 @@ exports.createUser = async (req, res) => {
         });
         await newUser.save();
 
-        logger.info("[%s] %s created a new user: %s", req.user?.role, req.user?.email, email);
+        // logger.info("[%s] %s created a new user: %s", req.user?.role, req.user?.email, email);
+        await logActivity({
+            req,
+            action: 'USER_CREATED',
+            module: 'UserManagement',
+            metadata: { createdUserEmail: email, createdBy: req.user.id }
+        });
         return res.status(201).json({ success: true, message: "New user added." });
     } catch (error) {
         return res.status(500).json({ success: false, message: "Server error" });
@@ -112,7 +119,13 @@ exports.bulkDeleteUsers = async (req, res) => {
 
         const result = await User.deleteMany({ _id: { $in: filteredUserIds } });
 
-        logger.info("[%s] %s bulk deleted %d users", req.user?.role, req.user?.email, result.deletedCount);
+        // logger.info("[%s] %s bulk deleted %d users", req.user?.role, req.user?.email, result.deletedCount);
+        await logActivity({
+            req,
+            action: 'USER_BULK_DELETED',
+            module: 'UserManagement',
+            metadata: { deletedCount: result.deletedCount, deletedIds: filteredUserIds }
+        });
 
         return res.status(200).json({
             success: true,
@@ -151,7 +164,13 @@ exports.bulkToggleStatus = async (req, res) => {
             { $set: { isActive: status } }
         );
 
-        logger.info("[%s] %s bulk updated status for %d users to %s", req.user?.role, req.user?.email, result.modifiedCount, status);
+        // logger.info("[%s] %s bulk updated status for %d users to %s", req.user?.role, req.user?.email, result.modifiedCount, status);
+        await logActivity({
+            req,
+            action: 'USER_BULK_STATUS_CHANGE',
+            module: 'UserManagement',
+            metadata: { modifiedCount: result.modifiedCount, newStatus: status, userIds: filteredUserIds }
+        });
 
         return res.status(200).json({
             success: true,
@@ -215,7 +234,13 @@ exports.updateUserByAdmin = async (req, res) => {
         message: "User not found.",
       });
     }
-    logger.info("[%s] %s updated user: %s", req.user?.role, req.user?.email, updated.email);
+    // logger.info("[%s] %s updated user: %s", req.user?.role, req.user?.email, updated.email);
+    await logActivity({
+        req,
+        action: 'USER_UPDATED',
+        module: 'UserManagement',
+        metadata: { userId: updated._id, updatedFields: { fname, lname, phone, role } }
+    });
     return res.status(200).json({
         success: true, 
         message: "User updated.", 
@@ -244,7 +269,13 @@ exports.deleteUserByAdmin = async (req, res) => {
       });
     }
 
-    logger.info("[%s] %s deleted user: %s", req.user?.role, req.user?.email, deletedUser.email);
+    // logger.info("[%s] %s deleted user: %s", req.user?.role, req.user?.email, deletedUser.email);
+    await logActivity({
+        req,
+        action: 'USER_DELETED',
+        module: 'UserManagement',
+        metadata: { deletedUserEmail: deletedUser.email, deletedUserId: deletedUser._id }
+    });
 
     return res.status(200).json({
       success: true,
@@ -275,7 +306,13 @@ exports.toggleUserStatus = async (req,res) =>{
         user.isActive = !user.isActive
         await user.save();
 
-        logger.info("[%s] %s toggled user %s status to: %s", req.user?.role, req.user?.email, user.email, user.isActive ? "active" : "inactive");
+        // logger.info("[%s] %s toggled user %s status to: %s", req.user?.role, req.user?.email, user.email, user.isActive ? "active" : "inactive");
+        await logActivity({
+            req,
+            action: 'USER_STATUS_CHANGE',
+            module: 'UserManagement',
+            metadata: { userId: user._id, newStatus: user.isActive ? "active" : "inactive" }
+        });
 
         return res.status(200).json({
             success: true, 
