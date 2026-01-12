@@ -12,13 +12,16 @@ import {
   EyeOff,
 } from 'lucide-react';
 import PasswordStrengthMeter from './common/PasswordStrengthMeter';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 export default function RegisterForm() {
   const { mutate, isLoading } = useRegisterUser();
   const [showPasswordStrength, setShowPasswordStrength] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
 
   const initialValues = {
     fname: '',
@@ -54,14 +57,27 @@ export default function RegisterForm() {
       .required('Confirm password is required'),
   });
 
-  const onSubmit = (values,{resetForm}) => {
+  const onSubmit = (values, {resetForm}) => {
+    if (!recaptchaToken) {
+      alert('Please complete the reCAPTCHA verification');
+      return;
+    }
+    
     const { fname, lname, email, phone, password } = values;
-    const payload = { fname, lname, email, phone, password };
+    const payload = { fname, lname, email, phone, password, recaptchaToken };
     mutate(payload, {
-    onSuccess: () => {
-      resetForm(); 
-    },
-  });
+      onSuccess: () => {
+        resetForm();
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+          setRecaptchaToken(null);
+        }
+      },
+    });
+  };
+
+  const onRecaptchaChange = (token) => {
+    setRecaptchaToken(token);
   };
 
   return (
@@ -185,9 +201,19 @@ export default function RegisterForm() {
                 </div>
               </div>
 
+              {/* reCAPTCHA */}
+              <div className="flex justify-center mt-4">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
+                  onChange={onRecaptchaChange}
+                  onExpired={() => setRecaptchaToken(null)}
+                />
+              </div>
+
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !recaptchaToken}
                 className="w-full px-4 py-3.5 mt-6 font-bold text-white transition-all transform bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Creating Account...' : 'Create Account'}

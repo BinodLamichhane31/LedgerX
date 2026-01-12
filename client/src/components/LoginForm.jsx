@@ -2,11 +2,14 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useLoginUser } from '../hooks/auth/useLoginUser';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 export default function LoginForm() {
   const { mutate, isLoading } = useLoginUser();
   const [showPassword, setShowPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
 
   const initialValues = {
     email: '',
@@ -19,7 +22,23 @@ export default function LoginForm() {
   });
 
   const onSubmit = (values) => {
-    mutate(values);
+    if (!recaptchaToken) {
+      alert('Please complete the reCAPTCHA verification');
+      return;
+    }
+    
+    mutate({ ...values, recaptchaToken }, {
+      onSettled: () => {
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+          setRecaptchaToken(null);
+        }
+      }
+    });
+  };
+
+  const onRecaptchaChange = (token) => {
+    setRecaptchaToken(token);
   };
 
   return (
@@ -81,9 +100,19 @@ export default function LoginForm() {
                </div>
             </div>
 
+            {/* reCAPTCHA */}
+            <div className="flex justify-center">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
+                onChange={onRecaptchaChange}
+                onExpired={() => setRecaptchaToken(null)}
+              />
+            </div>
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !recaptchaToken}
               className="w-full px-4 py-3.5 font-bold text-white transition-all transform bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Authenticating...' : 'Sign In'}
