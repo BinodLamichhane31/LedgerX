@@ -21,6 +21,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const botRoutes = require("./routes/botRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const globalLimiter = require("./middlewares/rateLimiter").globalLimiter;
+const mongoSanitize = require('express-mongo-sanitize');
 
 const app = express();
 app.set("trust proxy", 1);
@@ -33,6 +34,11 @@ const corsOptions = {
     origin: ['http://localhost:5173', 'http://localhost:3000'],
     credentials: true,
 };
+
+// SANITIZATION
+app.use(mongoSanitize());
+
+//CORS
 app.use(cors(corsOptions));
 
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
