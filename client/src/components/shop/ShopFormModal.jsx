@@ -21,9 +21,17 @@ const ShopFormModal = ({ isOpen, onClose, shop }) => {
   };
 
   const validationSchema = Yup.object({
-    name: Yup.string().required('Shop name is required'),
-    address: Yup.string(),
-    contactNumber: Yup.string(),
+    name: Yup.string()
+      .min(3, 'Shop name must be at least 3 characters')
+      .max(100, 'Shop name must be less than 100 characters')
+      .required('Shop name is required'),
+    address: Yup.string()
+      .min(5, 'Address must be at least 5 characters')
+      .max(200, 'Address must be less than 200 characters')
+      .required('Address is required'),
+    contactNumber: Yup.string()
+      .matches(/^(98|97)\d{8}$/, 'Please enter a valid Nepali mobile number (e.g., 9841234567)')
+      .required('Contact number is required'),
   });
 
   const handleSubmit = (values) => {
@@ -64,12 +72,14 @@ const ShopFormModal = ({ isOpen, onClose, shop }) => {
                 <ErrorMessage name="name" component="div" className="mt-1 text-sm text-red-500" />
               </div>
               <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address (Optional)</label>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
                 <Field name="address" type="text" className="w-full p-2.5 mt-1 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" />
+                <ErrorMessage name="address" component="div" className="mt-1 text-sm text-red-500" />
               </div>
               <div>
-                <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700">Contact Number (Optional)</label>
+                <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700">Contact Number</label>
                 <Field name="contactNumber" type="text" className="w-full p-2.5 mt-1 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" />
+                <ErrorMessage name="contactNumber" component="div" className="mt-1 text-sm text-red-500" />
               </div>
 
               <div className="flex justify-end pt-4 space-x-3">

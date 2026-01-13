@@ -20,28 +20,27 @@ const cashRoutes = require("./routes/cashRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const botRoutes = require("./routes/botRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const mongoSanitize = require('@exortek/express-mongo-sanitize')
 const globalLimiter = require("./middlewares/rateLimiter").globalLimiter;
-const mongoSanitize = require('express-mongo-sanitize');
-
-const app = express();
-app.set("trust proxy", 1);
-
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
-app.use(cookieParser());
-
 const corsOptions = {
     origin: ['http://localhost:5173', 'http://localhost:3000'],
     credentials: true,
 };
 
-// SANITIZATION
+const app = express();
+app.set("trust proxy", 1);
+
+app.use(cors(corsOptions));
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(cookieParser());
+
+
 app.use(mongoSanitize());
 
-//CORS
-app.use(cors(corsOptions));
-
-app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
 //Global Rate Limit
 app.use(globalLimiter);

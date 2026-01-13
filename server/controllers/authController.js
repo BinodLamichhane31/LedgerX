@@ -7,7 +7,7 @@ const Shop = require("../models/Shop");
 const { checkPasswordHistory, addToPasswordHistory, isPasswordExpired } = require("../utils/passwordUtils");
 const securityLogger = require("../utils/securityLogger");
 const { logActivity } = require("../services/activityLogger");
-
+const { matchedData } = require("express-validator");
 
 const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
   const token = jwt.sign({id: user._id, role: user.role},process.env.JWT_SECRET,{
@@ -63,7 +63,8 @@ const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
  * @access  Public
  */
 exports.registerUser = async (req, res) => {
-  const { fname, lname, email, phone, password } = req.body;
+  const data = matchedData(req)
+  const { fname, lname, email, phone, password } = data;
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -111,7 +112,8 @@ exports.registerUser = async (req, res) => {
  * @access  Public
  */
 exports.loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const data = matchedData(req);
+  const { email, password } = data;
   try {
     const getUser = await User.findOne({ email }).populate({
       path: 'shops',
