@@ -88,8 +88,6 @@ const ActivityLogs = () => {
                         ))}
                     </select>
 
-                    {/* Date Filter (Simplified) */}
-                     {/* For a real app, use a date picker library. Here simpler inputs */}
                     <div className="flex gap-2">
                         <input 
                             type="date" 

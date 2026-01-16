@@ -264,6 +264,14 @@ exports.updateProfile = async (req, res) => {
       { new: true, runValidators: true }
     ).select("-password");
 
+    await logActivity({
+        req,
+        userId,
+        action: 'PROFILE_UPDATE',
+        module: 'Auth',
+        metadata: { fname, lname, phone }
+    });
+
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully.",
@@ -413,6 +421,14 @@ exports.uploadProfileImage = async (req, res) => {
       { profileImage: relativePath },
       { new: true}
     ).select("-password");
+
+    await logActivity({
+        req,
+        userId,
+        action: 'PROFILE_IMAGE_UPDATE',
+        module: 'Auth',
+        metadata: { filename: req.file.filename }
+    });
 
     return res.status(200).json({
       success: true,

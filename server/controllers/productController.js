@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const { logActivity } = require('../services/activityLogger');
 const Shop = require('../models/Shop');
 const path = require('path');
 const fs = require("fs");
@@ -42,6 +43,14 @@ exports.addProduct = async (req, res) => {
         }
 
         await newProduct.save();
+
+        await logActivity({
+            req,
+            userId,
+            action: 'PRODUCT_CREATE',
+            module: 'Product',
+            metadata: { productId: newProduct._id, name, shopId }
+        });
 
         res.status(201).json({
             success: true,
@@ -144,6 +153,14 @@ exports.updateProduct = async (req, res) => {
 
         const updatedProduct = await Product.findByIdAndUpdate(productId, { $set: updates }, { new: true, runValidators: true });
 
+        await logActivity({
+            req,
+            userId: req.user._id,
+            action: 'PRODUCT_UPDATE',
+            module: 'Product',
+            metadata: { productId: product._id, updates }
+        });
+
         res.status(200).json({
             success: true,
             message: 'Product updated successfully.',
@@ -180,6 +197,14 @@ exports.deleteProduct = async (req, res) => {
         }
         
         await Product.findByIdAndDelete(productId);
+
+        await logActivity({
+            req,
+            userId: req.user._id,
+            action: 'PRODUCT_DELETE',
+            module: 'Product',
+            metadata: { productId, name: product.name }
+        });
 
         res.status(200).json({ success: true, message: 'Product deleted successfully.' });
 

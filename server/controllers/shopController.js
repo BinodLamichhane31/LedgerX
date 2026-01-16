@@ -1,6 +1,7 @@
 const { log } = require("winston");
 const Shop = require("../models/Shop");
 const User = require("../models/User");
+const { logActivity } = require("../services/activityLogger");
 
 
 exports.createShop = async (req, res) =>{
@@ -35,6 +36,14 @@ exports.createShop = async (req, res) =>{
 
        user.shops.push(newShop._id);
        await user.save()
+
+       await logActivity({
+            req,
+            userId,
+            action: 'SHOP_CREATE',
+            module: 'Shop',
+            metadata: { shopId: newShop._id, name }
+       });
 
         return res.status(201).json({
             success:true,
@@ -153,6 +162,14 @@ exports.updateShop = async (req, res) => {
     Object.assign(shop, updates);
     await shop.save();
 
+    await logActivity({
+        req,
+        userId: req.user._id,
+        action: 'SHOP_UPDATE',
+        module: 'Shop',
+        metadata: { shopId: shop._id, updates }
+   });
+
     return res.status(200).json({
       success: true,
       message: "Shop updated.",
@@ -193,6 +210,14 @@ exports.deleteShop = async (req, res) => {
     await shop.deleteOne()
 
     await User.findByIdAndUpdate(req.user._id, { $pull: { shops: shop._id } });
+
+    await logActivity({
+        req,
+        userId: req.user._id,
+        action: 'SHOP_DELETE',
+        module: 'Shop',
+        metadata: { shopId: id, name: shop.name }
+   });
 
     return res.status(200).json({
       success: true,
