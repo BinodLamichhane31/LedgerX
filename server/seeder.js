@@ -94,7 +94,7 @@ const seedDatabase = async () => {
             phone: '9812345678',
             password: hashedPassword,
             role: 'user',
-            // subscription: { plan: 'PRO', status: 'ACTIVE' },
+            subscription: { plan: 'PRO', status: 'ACTIVE' },
         });
         const admin = new User({
             fname: 'Admin',

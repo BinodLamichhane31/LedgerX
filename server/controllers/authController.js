@@ -255,12 +255,12 @@ exports.getProfile = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
   const userId = req.user._id;
-  const { fname, lname } = req.body;
+  const { fname, lname, phone } = req.body;
 
   try {
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { fname, lname },
+      { fname, lname, phone },
       { new: true, runValidators: true }
     ).select("-password");
 
@@ -270,6 +270,12 @@ exports.updateProfile = async (req, res) => {
       data: updatedUser,
     });
   } catch (error) {
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.phone) {
+        return res.status(409).json({
+            success: false,
+            message: "Phone number already in use by another account."
+        });
+    }
     console.log(error);
     return res.status(500).json({
       success: false,
