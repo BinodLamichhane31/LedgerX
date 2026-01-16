@@ -9,9 +9,25 @@ import * as Yup from 'yup';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Validation Schemas for each step
-const step1Schema = Yup.object({ name: Yup.string().min(3, 'Too short!').required('A great shop needs a name!') });
-const step2Schema = Yup.object({ address: Yup.string() });
-const step3Schema = Yup.object({ contactNumber: Yup.string() });
+const step1Schema = Yup.object({ 
+  name: Yup.string()
+    .min(3, 'Shop name must be at least 3 characters')
+    .max(100, 'Shop name must be less than 100 characters')
+    .required('Shop name is required') 
+});
+
+const step2Schema = Yup.object({ 
+  address: Yup.string()
+    .min(5, 'Address must be at least 5 characters')
+    .max(200, 'Address must be less than 200 characters')
+    .required('Address is required') 
+});
+
+const step3Schema = Yup.object({ 
+  contactNumber: Yup.string()
+    .matches(/^(98|97)\d{8}$/, 'Please enter a valid Nepali mobile number (e.g., 9841234567)')
+    .required('Contact number is required') 
+});
 
 const validationSchemas = [step1Schema, step2Schema, step3Schema];
 
@@ -130,16 +146,16 @@ const AddShopModal = ({ isOpen, onClose, onCreationSuccess }) => {
                         {step === 1 && <StepContent 
                           icon={<MapPin className="w-8 h-8 text-indigo-600"/>}
                           title="Where can customers find you?"
-                          subtitle="Adding a location helps with local discovery. (Optional)"
+                          subtitle="Adding a location helps with local discovery."
                           name="address"
                           placeholder="e.g., Umakunda-02, Ramechhap"
                         />}
                         {step === 2 && <StepContent
                           icon={<Phone className="w-8 h-8 text-indigo-600"/>}
                           title="Finally, a contact number"
-                          subtitle="A contact number builds trust and makes communication easy. (Optional)"
+                          subtitle="A contact number builds trust and makes communication easy."
                           name="contactNumber"
-                          placeholder="e.g., +977 98XXXXXXXX"
+                          placeholder="e.g., 9841234567"
                         />}
                     </motion.div>
                 </AnimatePresence>

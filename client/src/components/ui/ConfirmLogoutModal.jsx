@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { LogOut, X } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ConfirmLogoutModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
   // Handle Escape key
@@ -12,7 +13,6 @@ const ConfirmLogoutModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll
       document.body.style.overflow = 'hidden';
     }
 
@@ -22,89 +22,66 @@ const ConfirmLogoutModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
     };
   }, [isOpen, onClose, isLoading]);
 
-  // Handle click outside
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget && !isLoading) {
-      onClose();
-    }
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      onClick={handleBackdropClick}
-    >
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 bg-rose-100 rounded-full">
-              <LogOut className="w-5 h-5 text-rose-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Confirm Logout</h3>
-              <p className="text-sm text-gray-500">Are you sure you want to logout?</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-            disabled={isLoading}
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-600 mb-4">
-            You will be logged out of your account and redirected to the login page. 
-            Any unsaved changes will be lost.
-          </p>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="relative z-50">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={!isLoading ? onClose : undefined}
+          />
           
-          <div className="p-3 mb-4 border border-amber-200 rounded-lg bg-amber-50">
-            <p className="text-sm text-amber-800">
-              <strong>Note:</strong> Make sure to save any important work before logging out.
-            </p>
+          {/* Modal */}
+          <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-sm overflow-hidden pointer-events-auto bg-white shadow-2xl rounded-2xl ring-1 ring-gray-900/5"
+            >
+              <div className="p-6">
+                <h3 className="text-base font-semibold text-slate-900">
+                  Sign out
+                </h3>
+                
+                <p className="mt-1 text-sm text-slate-500">
+                  Are you sure you want to sign out?
+                </p>
+                
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={onClose}
+                    disabled={isLoading}
+                    className="px-3 py-2 text-sm font-medium transition-colors rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  
+                  <button
+                    onClick={onConfirm}
+                    disabled={isLoading}
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white transition-all bg-rose-600 rounded-lg shadow-sm hover:bg-rose-700 active:scale-95 disabled:opacity-70 disabled:pointer-events-none hover:shadow-md shadow-rose-200"
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="w-3 h-3 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Signing out...
+                      </>
+                    ) : (
+                      'Sign out'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200">
-          <div className="text-xs text-gray-500">
-            Press <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Esc</kbd> to cancel
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              disabled={isLoading}
-              className="px-4 py-2 text-sm font-medium bg-white border rounded-lg text-slate-700 border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onConfirm}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-all border border-transparent rounded-lg bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 disabled:opacity-50 active:scale-95"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Logging out...
-                </>
-              ) : (
-                <>
-                  <LogOut className="w-4 h-4" />
-                  Logout
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
 
