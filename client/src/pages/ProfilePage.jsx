@@ -123,7 +123,7 @@ const ProfilePage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.fname || !formData.lname) {
+    if (!formData.fname.trim() || !formData.lname.trim()) {
         toast.error("First name and last name are required.");
         return;
     }
@@ -131,10 +131,22 @@ const ProfilePage = () => {
         toast.error("Phone number is required.");
         return;
     }
+    
+    // Validate Phone Format (Nepal)
+    const phoneRegex = /^9\d{9}$/;
+    if (!phoneRegex.test(formData.phone)) {
+        toast.error("Invalid phone number. It must be a 10-digit number starting with 9.");
+        return;
+    }
+
     updateProfile(formData, {
         onError: (error) => {
             if (error.response?.status === 409) {
                 toast.error(error.response.data.message || "Phone number already in use.");
+            } else if (error.response?.data?.errors) {
+                 // Handle validation errors from backend
+                 const messages = error.response.data.errors.map(err => err.msg).join(". ");
+                 toast.error(messages);
             } else {
                 toast.error("Failed to update profile.");
             }
