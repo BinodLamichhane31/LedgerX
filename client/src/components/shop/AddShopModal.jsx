@@ -25,7 +25,7 @@ const step2Schema = Yup.object({
 
 const step3Schema = Yup.object({ 
   contactNumber: Yup.string()
-    .matches(/^(98|97)\d{8}$/, 'Please enter a valid Nepali mobile number (e.g., 9841234567)')
+    .matches(/^(98|97|96)\d{8}$/, 'Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)')
     .required('Contact number is required') 
 });
 

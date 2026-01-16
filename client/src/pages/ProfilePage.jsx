@@ -133,9 +133,9 @@ const ProfilePage = () => {
     }
     
     // Validate Phone Format (Nepal)
-    const phoneRegex = /^9\d{9}$/;
+    const phoneRegex = /^(98|97|96)\d{8}$/;
     if (!phoneRegex.test(formData.phone)) {
-        toast.error("Invalid phone number. It must be a 10-digit number starting with 9.");
+        toast.error("Invalid phone number. Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)");
         return;
     }
 

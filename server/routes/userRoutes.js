@@ -1,6 +1,6 @@
 const express = require('express')
 const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration } = require('../controllers/authController')
-const { registerValidation, loginValidation, changePasswordValidation } = require('../validator/authValidator')
+const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
 const { authLimiter } = require('../middlewares/rateLimiter')
@@ -42,6 +42,8 @@ router.get(
 router.put(
   "/profile",
   protect,
+  updateProfileValidation,
+  validate,
   updateProfile
 );
 

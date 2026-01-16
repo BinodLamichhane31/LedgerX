@@ -36,7 +36,9 @@ export default function RegisterForm() {
     fname: Yup.string().required('First name is required'),
     lname: Yup.string().required('Last name is required'),
     email: Yup.string().email('Invalid email').required('Email is required'),
-    phone: Yup.string().required('Phone number is required'),
+    phone: Yup.string()
+      .matches(/^(98|97|96)\d{8}$/, 'Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)')
+      .required('Phone number is required'),
     password: Yup.string()
       .min(8, 'Password must be at least 8 characters')
       .matches(

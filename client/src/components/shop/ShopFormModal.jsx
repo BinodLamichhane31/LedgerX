@@ -30,7 +30,7 @@ const ShopFormModal = ({ isOpen, onClose, shop }) => {
       .max(200, 'Address must be less than 200 characters')
       .required('Address is required'),
     contactNumber: Yup.string()
-      .matches(/^(98|97)\d{8}$/, 'Please enter a valid Nepali mobile number (e.g., 9841234567)')
+      .matches(/^(98|97|96)\d{8}$/, 'Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)')
       .required('Contact number is required'),
   });
 

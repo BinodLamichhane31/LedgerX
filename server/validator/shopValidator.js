@@ -22,8 +22,8 @@ exports.createShopValidation = [
         .trim()
         .notEmpty()
         .withMessage("Contact number is required")
-        .matches(/^(98|97)\d{8}$/)
-        .withMessage("Please enter a valid Nepali mobile number (e.g., 9841234567)")
+        .isMobilePhone('ne-NP')
+        .withMessage("Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)")
 ];
 
 exports.updateShopValidation = [
@@ -45,6 +45,6 @@ exports.updateShopValidation = [
         .optional()
         .isString()
         .trim()
-        .matches(/^(98|97)\d{8}$/)
-        .withMessage("Please enter a valid Nepali mobile number (e.g., 9841234567)")
+        .isMobilePhone('ne-NP')
+        .withMessage("Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)")
 ];
