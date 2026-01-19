@@ -22,9 +22,27 @@ const botRoutes = require("./routes/botRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const mongoSanitize = require('@exortek/express-mongo-sanitize')
 const globalLimiter = require("./middlewares/rateLimiter").globalLimiter;
+
+// Secure CORS Configuration
+// CRITICAL: When credentials: true, origin MUST NOT be '*' (wildcard)
+// Only trusted frontend URLs are allowed
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',') 
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
-    credentials: true,
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman, curl)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true, // Required for httpOnly cookies
+    optionsSuccessStatus: 200
 };
 
 const app = express();
