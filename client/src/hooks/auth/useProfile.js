@@ -3,13 +3,12 @@ import { getProfileService, updateProfileService, uploadProfileImageService, cha
 import { toast } from "react-toastify";
 
 export const useGetProfile = () => {
-  const token = localStorage.getItem("token"); 
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   return useQuery({
     queryKey: ["profile"],
     queryFn: getProfileService,
-    enabled: !!token && !!user,
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
     retry: false,
     refetchOnWindowFocus: false,

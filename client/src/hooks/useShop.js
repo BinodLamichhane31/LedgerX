@@ -22,14 +22,13 @@ export const useCreateShop = () =>{
 }
 
 export const useGetShops = () => {
-  const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   return useQuery({
     queryKey: ["shops"],
     queryFn: getShopsService,
     select: (response) => response.data?.data || [],
-    enabled: !!token && !!user,
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
     retry: false,
     refetchOnWindowFocus: false,
@@ -83,13 +82,12 @@ export const useDeleteShop = () => {
 
 
 export const useSelectActiveShop = () => {
-  const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: selectActiveShopService,
-    enabled: !!token && !!user,
+    enabled: !!user,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["shops"] });
     },

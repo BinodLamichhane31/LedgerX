@@ -53,8 +53,7 @@ const PaymentStatusPage = () => {
                                 // 2. Perform actions that cause re-renders.
                                 const { data: updatedUserData } = await refetchProfile();
                                 if (updatedUserData) {
-                                    const token = localStorage.getItem('token');
-                                    login({ data: updatedUserData, token });
+                                    login({ data: updatedUserData });
                                 }
                             } catch (e) {
                                 console.error("Failed to update profile after payment:", e);
