@@ -1,10 +1,6 @@
 const { isPasswordExpired } = require('../utils/passwordUtils');
 
-/**
- * Middleware to check if user's password has expired
- * This can be applied to sensitive routes to enforce password updates
- * Note: The password change endpoint should NOT use this middleware
- */
+
 const checkPasswordExpiration = async (req, res, next) => {
   try {
     // Skip check if user is not authenticated

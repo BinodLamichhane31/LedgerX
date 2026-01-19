@@ -12,6 +12,7 @@ const Shop = require("../models/Shop");
 const { log } = require("winston");
 const Transaction = require("../models/Transaction");
 const Sale = require("../models/Sale");
+const { logActivity } = require("../services/activityLogger");
 
 exports.addCustomer = async (req, res) =>{
     try {        
@@ -58,6 +59,17 @@ exports.addCustomer = async (req, res) =>{
             shop: shopId
         })
         await newCustomer.save()
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'CUSTOMER_CREATE',
+            module: 'Customer',
+            metadata: { 
+                customerId: newCustomer._id.toString(),
+                shopId: shopId.toString()
+            }
+        });
 
         return res.status(201).json({
             success: true,
@@ -121,6 +133,18 @@ exports.getCustomersByShop = async(req, res) =>{
         const customers = await Customer.find(searchQuery)
             .sort(sortBy)
         
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'CUSTOMERS_LIST_VIEW',
+            module: 'Customer',
+            metadata: { 
+                shopId: shopId.toString(),
+                customerCount: customers.length,
+                searchQuery: search || 'none'
+            }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Customers fetched",
@@ -157,6 +181,17 @@ exports.getCustomerById = async(req,res) =>{
                 message: "Not authorized to view this customer."
             })
         }
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'CUSTOMER_VIEW',
+            module: 'Customer',
+            metadata: { 
+                customerId: customerId
+            }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Customer data fetched.",
@@ -205,6 +240,17 @@ exports.updateCustomer = async(req, res) =>{
             {$set: {name, phone,email ,address}},
             {new: true, runValidators:true}
         )
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'CUSTOMER_UPDATE',
+            module: 'Customer',
+            metadata: { 
+                customerId: customerId,
+                updatedFields: Object.keys(req.body).filter(k => k !== 'password')
+            }
+        });
 
         return res.status(200).json({
             success: true,
@@ -272,6 +318,17 @@ exports.deleteCustomer = async (req, res) => {
         
 
         await Customer.findByIdAndDelete(customerId);
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'CUSTOMER_DELETE',
+            module: 'Customer',
+            metadata: { 
+                customerId: customerId
+            }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Customer deleted."

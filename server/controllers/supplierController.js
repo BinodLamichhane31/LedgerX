@@ -3,6 +3,7 @@ const Shop = require("../models/Shop");
 const Purchase = require("../models/Purchase");
 const logger = require("../utils/logger");
 const Transaction = require("../models/Transaction");
+const { logActivity } = require("../services/activityLogger");
 
 exports.addSupplier = async (req, res) =>{
     try {        
@@ -49,6 +50,17 @@ exports.addSupplier = async (req, res) =>{
             shop: shopId
         })
         await newSupplier.save()
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'SUPPLIER_CREATE',
+            module: 'Supplier',
+            metadata: { 
+                supplierId: newSupplier._id.toString(),
+                shopId: shopId.toString()
+            }
+        });
 
         return res.status(201).json({
             success: true,
@@ -104,6 +116,18 @@ exports.getSuppliersByShop = async(req, res) =>{
         const suppliers = await Supplier.find(searchQuery)
             .sort(sortBy)
         
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'SUPPLIERS_LIST_VIEW',
+            module: 'Supplier',
+            metadata: { 
+                shopId: shopId.toString(),
+                supplierCount: suppliers.length,
+                searchQuery: search || 'none'
+            }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Suppliers fetched",
@@ -140,6 +164,17 @@ exports.getSupplierById = async(req,res) =>{
                 message: "Not authorized to view this supplier."
             })
         }
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'SUPPLIER_VIEW',
+            module: 'Supplier',
+            metadata: { 
+                supplierId: supplierId
+            }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Supplier data fetched.",
@@ -188,6 +223,17 @@ exports.updateSupplier = async(req, res) =>{
             {$set: {name, phone,email ,address}},
             {new: true, runValidators:true}
         )
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'SUPPLIER_UPDATE',
+            module: 'Supplier',
+            metadata: { 
+                supplierId: supplierId,
+                updatedFields: Object.keys(req.body)
+            }
+        });
 
         return res.status(200).json({
             success: true,
@@ -253,6 +299,17 @@ exports.deleteSupplier = async (req, res) => {
         }
 
         await Supplier.findByIdAndDelete(supplierId);
+
+        await logActivity({
+            req,
+            userId: userId,
+            action: 'SUPPLIER_DELETE',
+            module: 'Supplier',
+            metadata: { 
+                supplierId: supplierId
+            }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Supplier deleted."
