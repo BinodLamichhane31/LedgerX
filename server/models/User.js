@@ -40,9 +40,17 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
+      required: true,
+    },
     password: {
       type: String,
-      required: true,
+      required: function() {
+        return this.authProvider === 'local';
+      },
     },
     passwordHistory: [{
       type: String,

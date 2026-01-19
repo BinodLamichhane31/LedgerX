@@ -145,6 +145,21 @@ exports.loginUser = async (req, res) => {
       });
     }
 
+    // Prevent Google OAuth users from logging in with password
+    if (getUser.authProvider === 'google') {
+      await logActivity({
+        req,
+        userId: getUser._id,
+        action: 'LOGIN_FAILED',
+        module: 'Auth',
+        metadata: { email, reason: 'Google OAuth user attempted password login' }
+      });
+      return res.status(400).json({
+        success: false,
+        message: "This account uses Google Sign-In. Please use 'Continue with Google' to login."
+      });
+    }
+
     const checkPassword = await bcrypt.compare(password, getUser.password);
     if (!checkPassword) {
       // Increment failed attempts
