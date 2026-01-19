@@ -1,5 +1,5 @@
 const express = require('express')
-const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration } = require('../controllers/authController')
+const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback } = require('../controllers/authController')
 const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
@@ -27,6 +27,10 @@ const loginMiddleware = [
 if (process.env.NODE_ENV !== 'test') {
     loginMiddleware.unshift(loginLimiter);
 }
+
+// Google OAuth
+router.get("/google", googleOAuthInitiate);
+router.get("/google/callback", googleOAuthCallback);
 
 router.post(
     "/login",

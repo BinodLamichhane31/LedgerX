@@ -7,6 +7,8 @@ const Shop = require("../models/Shop");
 const { checkPasswordHistory, addToPasswordHistory, isPasswordExpired } = require("../utils/passwordUtils");
 const securityLogger = require("../utils/securityLogger");
 const { logActivity } = require("../services/activityLogger");
+const crypto = require('crypto');
+const axios = require('axios');
 const { matchedData } = require("express-validator");
 
 const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
@@ -103,6 +105,188 @@ exports.registerUser = async (req, res) => {
       success: false,
       message: `Server error: ${error.message}`,
     });
+  }
+};
+
+/**
+ * @desc    Initiate Google OAuth flow
+ * @route   GET /api/auth/google
+ * @access  Public
+ */
+exports.googleOAuthInitiate = async (req, res) => {
+  try {
+
+    const state = crypto.randomBytes(32).toString('hex');
+
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 10 * 60 * 1000, 
+      secure: process.env.NODE_ENV === "production"
+    };
+
+    res.cookie('oauth_state', state, cookieOptions);
+
+    const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    googleAuthUrl.searchParams.append('client_id', process.env.GOOGLE_CLIENT_ID);
+    googleAuthUrl.searchParams.append('redirect_uri', process.env.GOOGLE_CALLBACK_URL);
+    googleAuthUrl.searchParams.append('response_type', 'code');
+    googleAuthUrl.searchParams.append('scope', 'openid email profile');
+    googleAuthUrl.searchParams.append('state', state);
+
+    await logActivity({
+      req,
+      action: 'GOOGLE_OAUTH_INITIATED',
+      module: 'Auth',
+      metadata: { state_generated: true }
+    });
+
+    res.redirect(googleAuthUrl.toString());
+
+  } catch (error) {
+    console.error('Google OAuth initiation error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to initiate Google OAuth'
+    });
+  }
+};
+
+/**
+ * @desc    Handle Google OAuth callback
+ * @route   GET /api/auth/google/callback
+ * @access  Public
+ */
+exports.googleOAuthCallback = async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    const storedState = req.cookies.oauth_state;
+
+    if (!state || !storedState || state !== storedState) {
+      await logActivity({
+        req,
+        action: 'GOOGLE_OAUTH_FAILED',
+        module: 'Auth',
+        metadata: { reason: 'Invalid state parameter - possible CSRF attack' }
+      });
+      return res.redirect(`${process.env.CLIENT_WEB_URL}/login?error=invalid_state`);
+    }
+
+    if (!code) {
+      await logActivity({
+        req,
+        action: 'GOOGLE_OAUTH_FAILED',
+        module: 'Auth',
+        metadata: { reason: 'No authorization code received' }
+      });
+      return res.redirect(`${process.env.CLIENT_WEB_URL}/login?error=no_code`);
+    }
+
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: process.env.GOOGLE_CALLBACK_URL,
+      grant_type: 'authorization_code'
+    });
+
+    const { access_token } = tokenResponse.data;
+
+    const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+
+    const googleUser = userInfoResponse.data;
+
+    let user = await User.findOne({ email: googleUser.email });
+
+    if (!user) {
+      user = await User.create({
+        fname: googleUser.given_name || 'User',
+        lname: googleUser.family_name || '',
+        email: googleUser.email,
+        phone: `google_${Date.now()}`,
+        authProvider: 'google',
+        isActive: true
+      });
+
+      await logActivity({
+        req,
+        userId: user._id,
+        action: 'USER_CREATED_VIA_GOOGLE_OAUTH',
+        module: 'Auth',
+        metadata: { email: user.email }
+      });
+    } else {
+      if (user.authProvider !== 'google') {
+        await logActivity({
+          req,
+          userId: user._id,
+          action: 'GOOGLE_OAUTH_FAILED',
+          module: 'Auth',
+          metadata: { reason: 'Email already registered with local auth' }
+        });
+        return res.redirect(`${process.env.CLIENT_WEB_URL}/login?error=email_exists`);
+      }
+    }
+
+    // 6. Check if account is active
+    if (!user.isActive) {
+      await logActivity({
+        req,
+        userId: user._id,
+        action: 'GOOGLE_OAUTH_FAILED',
+        module: 'Auth',
+        metadata: { reason: 'Account disabled' }
+      });
+      return res.redirect(`${process.env.CLIENT_WEB_URL}/login?error=account_disabled`);
+    }
+
+    // 7. Update last login
+    user.lastLogin = new Date();
+    await user.save({ validateBeforeSave: false });
+
+    // 8. Clear OAuth state cookie
+    res.clearCookie('oauth_state');
+
+    // 9. Generate JWT and store in httpOnly cookie
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRE }
+    );
+
+    const cookieOptions = {
+      expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000),
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === "production"
+    };
+
+    res.cookie('token', token, cookieOptions);
+
+    await logActivity({
+      req,
+      userId: user._id,
+      action: 'LOGIN_SUCCESS_VIA_GOOGLE_OAUTH',
+      module: 'Auth',
+      metadata: { email: user.email, role: user.role }
+    });
+
+    // 10. Redirect to frontend WITHOUT token in URL
+    res.redirect(`${process.env.CLIENT_WEB_URL}/dashboard`);
+
+  } catch (error) {
+    console.error('Google OAuth callback error:', error);
+    
+    await logActivity({
+      req,
+      action: 'GOOGLE_OAUTH_ERROR',
+      module: 'Auth',
+      metadata: { error: error.message }
+    });
+
+    res.redirect(`${process.env.CLIENT_WEB_URL}/login?error=oauth_failed`);
   }
 };
 
