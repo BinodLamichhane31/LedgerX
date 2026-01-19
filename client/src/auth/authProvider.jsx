@@ -5,6 +5,7 @@ import { socket } from "../socket";
 import SwitchingShopOverlay from "../components/ui/SwitchingShopOverlay";
 import LogoutOverlay from "../components/ui/LogoutOverlay";
 import { toast } from "react-toastify";
+import { getProfileService } from "../services/authService";
 
 export const AuthContext = createContext();
 
@@ -155,12 +156,40 @@ const AuthContextProvider = ({ children }) => {
     }, [queryClient, switchShopMutation, currentShop, shops, shopsLoading, setToastInfo]);
     
     useEffect(() => {
-        const storedUser = localStorage.getItem("user");
-
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+        const checkAuth = async () => {
+             const storedUser = localStorage.getItem("user");
+            
+             if (storedUser) {
+                 setUser(JSON.parse(storedUser));
+                 setAuthLoading(false);
+             } else {
+                // Try to fetch profile from backend (in case of OAuth redirect or persistent cookie)
+                try {
+                    const response = await getProfileService();
+                    if (response && response.data) {
+                        const userData = response.data;
+                        setUser(userData);
+                        localStorage.setItem("user", JSON.stringify(userData));
+                        
+                        // Set active shop if exists
+                        if(userData.activeShop){
+                             localStorage.setItem("currentShopId", userData.activeShop._id || userData.activeShop);
+                             setCurrentShopId(userData.activeShop._id || userData.activeShop);
+                        } else if (userData.shops && userData.shops.length > 0) {
+                             localStorage.setItem("currentShopId", userData.shops[0]._id);
+                             setCurrentShopId(userData.shops[0]._id);
+                        }
+                    }
+                } catch (error) {
+                    console.log("No active session found or failed to fetch profile.");
+                    // setUser(null) is implicit
+                } finally {
+                    setAuthLoading(false);
+                }
+             }
         }
-        setAuthLoading(false);
+        
+        checkAuth();
     }, []); 
 
     const loading = authLoading || (!!user && shopsLoading);

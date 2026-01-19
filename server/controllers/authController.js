@@ -120,7 +120,7 @@ exports.googleOAuthInitiate = async (req, res) => {
 
     const cookieOptions = {
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 10 * 60 * 1000, 
       secure: process.env.NODE_ENV === "production"
     };
@@ -159,9 +159,10 @@ exports.googleOAuthInitiate = async (req, res) => {
  */
 exports.googleOAuthCallback = async (req, res) => {
   try {
-    const { code, state } = req.query;
+    const { state } = req.query;
     const storedState = req.cookies.oauth_state;
 
+    // 1. Validate state parameter (CSRF protection)
     if (!state || !storedState || state !== storedState) {
       await logActivity({
         req,
@@ -172,6 +173,11 @@ exports.googleOAuthCallback = async (req, res) => {
       return res.redirect(`${process.env.CLIENT_WEB_URL}/login?error=invalid_state`);
     }
 
+    // Extract code manually from originalUrl to ensure correct parsing
+    const urlParams = new URLSearchParams(req.originalUrl.split('?')[1]);
+    const code = urlParams.get('code');
+
+    // 2. Validate authorization code
     if (!code) {
       await logActivity({
         req,
@@ -182,13 +188,14 @@ exports.googleOAuthCallback = async (req, res) => {
       return res.redirect(`${process.env.CLIENT_WEB_URL}/login?error=no_code`);
     }
 
-    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+    // 3. Exchange authorization code for access token
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams({
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
       redirect_uri: process.env.GOOGLE_CALLBACK_URL,
       grant_type: 'authorization_code'
-    });
+    }));
 
     const { access_token } = tokenResponse.data;
 
