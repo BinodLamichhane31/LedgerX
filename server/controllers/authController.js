@@ -398,11 +398,15 @@ exports.deleteAccount = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-    res.cookie('token', 'none', {
+    // Clear the authentication cookie immediately
+    // Use same attributes as when setting to ensure proper deletion
+    res.cookie('token', '', {
         expires: new Date(0),
         httpOnly: true,
+        sameSite: 'strict',
+        secure: process.env.NODE_ENV === "production"
     });
-    res.status(200).json({ success: true, message: "Logged out." });
+    res.status(200).json({ success: true, message: "Logged out successfully." });
 };
 
 exports.uploadProfileImage = async (req, res) => {
