@@ -1,8 +1,32 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import LoginForm from '../../components/LoginForm';
 import { Wallet, Shield, Zap } from 'lucide-react';
 
 const LoginPage = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const error = params.get('error');
+
+    if (error) {
+      const errorMessages = {
+        invalid_state: 'Security check failed. Please try again.',
+        no_code: 'Authentication failed. No code received.',
+        email_exists: 'This email is already registered with a password. Please log in with password.',
+        account_disabled: 'Your account has been disabled.',
+        oauth_failed: 'Google Sign-In failed. Please try again.'
+      };
+
+      toast.error(errorMessages[error] || 'Login failed. Please try again.');
+      
+      // Clear the query param to prevent showing the error again on refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location]);
+
   console.log("Rendering LoginPage");
   return (
     <div className="flex w-full min-h-[calc(100vh-140px)]">

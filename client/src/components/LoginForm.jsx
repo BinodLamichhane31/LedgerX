@@ -41,6 +41,10 @@ export default function LoginForm() {
     setRecaptchaToken(token);
   };
 
+  const handleGoogleLogin = () => {
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
+  };
+
   return (
     <div className="flex items-center justify-center px-4">
       <div className="w-full max-w-md p-8 bg-white">
@@ -53,6 +57,7 @@ export default function LoginForm() {
             <div className="flex flex-col gap-4">
               <button
                 type="button"
+                onClick={handleGoogleLogin}
                 className="flex items-center justify-center w-full px-4 py-3 font-semibold transition-all duration-200 bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 mr-3" alt="Google" />
