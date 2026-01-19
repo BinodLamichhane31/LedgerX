@@ -50,8 +50,7 @@ const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
         },
         shops: user.shops,
         currentShopId : currentShop ? currentShop._id : null
-      },
-      token,
+      }
     })
 
 }
@@ -448,24 +447,11 @@ exports.viewProfileImage = (req, res) => {
   const imagePath = path.join(__dirname, "..", "uploads", filename);
 
   if (!fs.existsSync(imagePath)) {
-    // Log failed login attempt
-    // Note: The original instruction's 'logActivity' call and response message
-    // seem intended for a login function, not 'viewProfileImage'.
-    // To make the code syntactically correct and avoid undefined variables like 'email',
-    // the 'logActivity' call is commented out and the response is adjusted to fit
-    // the context of 'viewProfileImage' (image not found).
-    // If a login function exists elsewhere, this log should be placed there.
-    // await logActivity({
-    //     req,
-    //     action: 'LOGIN_FAILED',
-    //     module: 'Auth',
-    //     metadata: { email, reason: 'Invalid credentials' },
-    //     level: 'warn'
-    // });
+
     
-    return res.status(404).json({ // Changed status to 404 for "Image not found"
+    return res.status(404).json({ 
       success: false,
-      message: "Image not found.", // Changed message to fit context
+      message: "Image not found.", 
     });
   }
 

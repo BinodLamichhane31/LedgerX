@@ -58,11 +58,10 @@ const AuthContextProvider = ({ children }) => {
     }, [user]);
 
     const login = useCallback((loginData) => {
-        const { data, token } = loginData;
+        const { data } = loginData;
         const { user: userData, currentShopId: initialShopId } = data;
 
         localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("token", token);
         setUser(userData);
 
         if (initialShopId) {
@@ -89,7 +88,6 @@ const AuthContextProvider = ({ children }) => {
         
         try {
             localStorage.removeItem("user");
-            localStorage.removeItem("token");
             localStorage.removeItem("currentShopId");
         } catch (error) {
             console.warn('LocalStorage clear error:', error);
@@ -157,10 +155,9 @@ const AuthContextProvider = ({ children }) => {
     }, [queryClient, switchShopMutation, currentShop, shops, shopsLoading, setToastInfo]);
     
     useEffect(() => {
-        const token = localStorage.getItem("token");
         const storedUser = localStorage.getItem("user");
 
-        if (token && storedUser) {
+        if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
         setAuthLoading(false);
