@@ -5,7 +5,7 @@ import { socket } from "../socket";
 import SwitchingShopOverlay from "../components/ui/SwitchingShopOverlay";
 import LogoutOverlay from "../components/ui/LogoutOverlay";
 import { toast } from "react-toastify";
-import { getProfileService } from "../services/authService";
+import { getProfileService, logoutUserService } from "../services/authService";
 
 export const AuthContext = createContext();
 
@@ -73,8 +73,15 @@ const AuthContextProvider = ({ children }) => {
         queryClient.invalidateQueries({ queryKey: ['shops'] });
     }, [queryClient]);
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
         setIsLoggingOut(true);
+        try {
+            // Call backend to clear httpOnly cookie
+            await logoutUserService();
+        } catch (error) {
+            console.warn('Backend logout failed:', error);
+        }
+
         try {
             socket.disconnect();
         } catch (error) {
@@ -105,9 +112,8 @@ const AuthContextProvider = ({ children }) => {
         
         setTimeout(() => {
             setIsLoggingOut(false);
-            // window.location.href = '/';
-        }, 200);
-        window.location.reload();
+            window.location.href = '/login'; // Redirect to login page instead of reload
+        }, 500); 
         console.log('logged out');
     }, [queryClient]);
 

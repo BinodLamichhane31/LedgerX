@@ -281,7 +281,11 @@ exports.googleOAuthCallback = async (req, res) => {
     });
 
     // 10. Redirect to frontend WITHOUT token in URL
-    res.redirect(`${process.env.CLIENT_WEB_URL}/dashboard`);
+    if (!user.shops || user.shops.length === 0) {
+      res.redirect(`${process.env.CLIENT_WEB_URL}/create-first-shop`);
+    } else {
+      res.redirect(`${process.env.CLIENT_WEB_URL}/dashboard`);
+    }
 
   } catch (error) {
     console.error('Google OAuth callback error:', error);
