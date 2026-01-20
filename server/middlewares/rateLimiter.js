@@ -54,3 +54,17 @@ exports.adminLimiter = createLimiter(
     'Admin API limit exceeded. Please try again after 15 minutes.',
     (req) => req.user ? req.user._id.toString() : req.ip
 );
+
+exports.passwordResetLimiter = createLimiter(
+    15 * 60 * 1000,
+    3,
+    'Too many password reset emails sent. Please try again after 15 minutes.',
+    (req) => req.body.email || req.ip
+);
+
+exports.resetSubmitLimiter = createLimiter(
+    60 * 60 * 1000, // 1 hour
+    5,
+    'Too many password reset attempts. Please try again after an hour.',
+    (req) => req.ip // Rate limit by IP for safety
+);

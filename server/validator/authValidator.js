@@ -39,3 +39,10 @@ exports.updateProfileValidation = [
     body("lname").optional().isString().notEmpty().withMessage("Last name cannot be empty"),
     body("phone").optional().isString().isMobilePhone('ne-NP').withMessage("Invalid phone number. Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)."),
 ];
+
+exports.resetPasswordValidation = [
+    body("password")
+        .isString()
+        .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/)
+        .withMessage("Password must be at least 8 characters with uppercase, lowercase, digit, and special character"),
+];

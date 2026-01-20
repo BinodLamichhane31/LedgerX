@@ -1,9 +1,9 @@
 const express = require('express')
-const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback } = require('../controllers/authController')
-const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation } = require('../validator/authValidator')
+const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback, forgotPassword, resetPassword } = require('../controllers/authController')
+const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation, resetPasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
-const { authLimiter } = require('../middlewares/rateLimiter')
+const { authLimiter, passwordResetLimiter } = require('../middlewares/rateLimiter')
 const { protect } = require('../middlewares/authMiddleware')
 const { verifyRecaptcha } = require('../middlewares/recaptchaMiddleware')
 const upload = require('../middlewares/upload')
@@ -88,5 +88,17 @@ router.get(
   checkPasswordExpiration
 );
 
+router.post(
+  "/forgot-password",
+  passwordResetLimiter,
+  forgotPassword
+);
+
+router.put(
+  "/reset-password/:resettoken",
+  resetPasswordValidation,
+  validate,
+  resetPassword
+);
 
 module.exports = router

@@ -23,6 +23,15 @@ exports.protect = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Forbidden: Account is disabled' });
         }
 
+        if (currentUser.passwordLastUpdated) {
+            const tokenIssuedAt = decodedPayload.iat; // seconds
+            const passwordUpdated = Math.floor(currentUser.passwordLastUpdated.getTime() / 1000); // seconds
+            
+            if (passwordUpdated > tokenIssuedAt) {
+                return res.status(401).json({ success: false, message: 'Password recently changed. Please login again.' });
+            }
+        }
+
         req.user = currentUser;
         
         next();
