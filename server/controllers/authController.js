@@ -810,6 +810,50 @@ exports.forgotPassword = async (req, res) => {
 
     const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
 
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: 'Inter', sans-serif; background-color: #f4f4f5; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+          .header { background: #4f46e5; padding: 32px; text-align: center; }
+          .logo { color: white; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
+          .content { padding: 40px 32px; color: #334155; line-height: 1.6; }
+          .h1 { font-size: 24px; font-weight: 700; color: #1e293b; margin-bottom: 24px; text-align: center; }
+          .button-container { text-align: center; margin: 32px 0; }
+          .button { display: inline-block; background-color: #4f46e5; color: #ffffff !important; font-weight: 600; padding: 14px 28px; border-radius: 8px; text-decoration: none; transition: background-color 0.2s; }
+          .button:hover { background-color: #4338ca; }
+          .footer { background-color: #f8fafc; padding: 24px; text-align: center; font-size: 14px; color: #64748b; }
+          .link { color: #4f46e5; word-break: break-all; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">LedgerX</div>
+          </div>
+          <div class="content">
+            <h1 class="h1">Reset Your Password</h1>
+            <p>Hello,</p>
+            <p>We received a request to reset the password for your LedgerX account. If you didn't make this request, you can safely ignore this email.</p>
+            <div class="button-container">
+              <a href="${resetUrl}" class="button" target="_blank">Reset Password</a>
+            </div>
+            <p>Or copy and paste this link into your browser:</p>
+            <p><a href="${resetUrl}" class="link">${resetUrl}</a></p>
+            <p>This link will expire in 10 minutes.</p>
+            <p>Best regards,<br>The LedgerX Team</p>
+          </div>
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} LedgerX. All rights reserved.
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
     try {
       await logActivity({
         req,
@@ -821,8 +865,9 @@ exports.forgotPassword = async (req, res) => {
 
       await sendEmail({
         email: user.email,
-        subject: 'Password Reset Token',
-        message,
+        subject: 'Reset your LedgerX password',
+        message: message, // Plain text fallback
+        html: html
       });
 
       return res.status(200).json({
