@@ -771,6 +771,12 @@ exports.forgotPassword = async (req, res) => {
 
     // Always return success to prevent email enumeration
     if (!user) {
+      await logActivity({
+          req,
+          action: 'PASSWORD_RESET_REQUEST_UNKNOWN',
+          module: 'Auth',
+          metadata: { email } // Will be masked by logger
+      });
       return res.status(200).json({
         success: true,
         message: "If that email is registered, you will receive a password reset link.",
@@ -805,6 +811,14 @@ exports.forgotPassword = async (req, res) => {
     const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
 
     try {
+      await logActivity({
+        req,
+        userId: user._id,
+        action: 'PASSWORD_RESET_REQUEST',
+        module: 'Auth',
+        metadata: { email: user.email }
+      });
+
       await sendEmail({
         email: user.email,
         subject: 'Password Reset Token',

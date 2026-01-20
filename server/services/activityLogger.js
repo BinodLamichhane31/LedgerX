@@ -21,19 +21,28 @@ const logActivity = async ({ req, userId, action, module, metadata = {}, level =
             user_agent = req.headers['user-agent'] || '';
         }
 
+        // Mask PII in metadata
+        const maskedMetadata = { ...metadata };
+        if (maskedMetadata.email) {
+            maskedMetadata.email = maskedMetadata.email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+        }
+        if (maskedMetadata.phone) {
+            maskedMetadata.phone = maskedMetadata.phone.replace(/(\d{3})\d+(\d{2})/, '$1*****$2');
+        }
+        
         // Create log entry
         await ActivityLog.create({
             user_id: userId || (req?.user ? req.user.id : null),
             action,
             module,
-            metadata,
+            metadata: maskedMetadata,
             ip_address,
             user_agent,
             created_at: new Date()
         });
 
         // Also log to system logger (Winston) for debugging/text logs
-        logger.info(`[Activity] [${module}] ${action} by User:${userId || 'Guest'} - ${JSON.stringify(metadata)}`);
+        logger.info(`[Activity] [${module}] ${action} by User:${userId || 'Guest'} - ${JSON.stringify(maskedMetadata)}`);
 
     } catch (error) {
         // Silent fail to avoid breaking the main application flow

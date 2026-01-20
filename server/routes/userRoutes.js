@@ -3,7 +3,7 @@ const { registerUser, loginUser, getProfile, updateProfile, changePassword, dele
 const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation, resetPasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
-const { authLimiter, passwordResetLimiter } = require('../middlewares/rateLimiter')
+const { authLimiter, passwordResetLimiter, resetSubmitLimiter } = require('../middlewares/rateLimiter')
 const { protect } = require('../middlewares/authMiddleware')
 const { verifyRecaptcha } = require('../middlewares/recaptchaMiddleware')
 const upload = require('../middlewares/upload')
@@ -91,11 +91,13 @@ router.get(
 router.post(
   "/forgot-password",
   passwordResetLimiter,
+  verifyRecaptcha,
   forgotPassword
 );
 
 router.put(
   "/reset-password/:resettoken",
+  resetSubmitLimiter,
   resetPasswordValidation,
   validate,
   resetPassword
