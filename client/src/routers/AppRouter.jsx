@@ -7,6 +7,8 @@ import RoleBasedRoute from "./RoleBasedRoute";
 import LandingPage from "../pages/Landing";
 import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignupPage";
+import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
 import UserDashboard from "../pages/user/DashboardPage";
 import CustomerManagementPage from "../pages/user/CustomerManagementPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -66,14 +68,16 @@ function AppRouter() {
                 : <LandingPage />
             }
           />
-          <Route 
-            path="/login" 
-            element={user ? <Navigate to="/" replace /> : <LoginPage />} 
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/" replace /> : <LoginPage />}
           />
-          <Route 
-            path="/register" 
-            element={user ? <Navigate to="/" replace /> : <SignupPage />} 
+          <Route
+            path="/register"
+            element={user ? <Navigate to="/" replace /> : <SignupPage />}
           />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         </Route>
 
         {/* ---------------- PRIVATE USER ROUTES ---------------- */}

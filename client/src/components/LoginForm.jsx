@@ -103,6 +103,12 @@ export default function LoginForm() {
                  </button>
                  <ErrorMessage name="password" component="div" className="mt-1 text-sm text-red-500" />
                </div>
+               
+               <div className="flex justify-end">
+                <a href="/forgot-password" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                  Forgot Password?
+                </a>
+               </div>
             </div>
 
             {/* reCAPTCHA */}

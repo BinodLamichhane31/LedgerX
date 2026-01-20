@@ -1,4 +1,4 @@
-import { getProfileApi, loginUserApi, logoutUserApi, registerUserApi, updateProfileApi, uploadProfileImageApi, changePasswordApi } from "../api/authApi";
+import { getProfileApi, loginUserApi, logoutUserApi, registerUserApi, updateProfileApi, uploadProfileImageApi, changePasswordApi, forgotPasswordApi, resetPasswordApi } from "../api/authApi";
 
 export const registerUserService = async (formData) =>{
     try {
@@ -68,5 +68,23 @@ export const changePasswordService = async (passwordData) => {
         return response.data;
     } catch (error) {
         throw error.response?.data || { message: "Failed to change password" };
+    }
+}
+
+export const forgotPasswordService = async (data) => {
+    try {
+        const response = await forgotPasswordApi(data);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: "Failed to send reset email" };
+    }
+}
+
+export const resetPasswordService = async (token, data) => {
+    try {
+        const response = await resetPasswordApi(token, data);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: "Failed to reset password" };
     }
 }
