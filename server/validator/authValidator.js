@@ -1,4 +1,5 @@
 const { body } = require("express-validator");
+const { isCommonPassword } = require("../utils/passwordUtils");
 
 exports.registerValidation = [
     body("fname").isString().notEmpty().withMessage("First name is required"),
@@ -10,6 +11,9 @@ exports.registerValidation = [
         .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/)
         .withMessage("Password must be at least 8 characters with uppercase, lowercase, digit, and special character")
         .custom((value, { req }) => {
+            if (isCommonPassword(value)) {
+                throw new Error("This password is too common or easy to guess. Please choose a stronger password.");
+            }
             const lowerPassword = value.toLowerCase();
             if (req.body.fname && lowerPassword.includes(req.body.fname.toLowerCase())) {
                 throw new Error("Password cannot contain your first name");

@@ -1,4 +1,6 @@
 const bcrypt = require('bcrypt');
+const commonPasswords = require('./commonPasswords');
+const securityLogger = require('./securityLogger');
 
 /**
  * Check if a new password matches any password in the history
@@ -57,8 +59,65 @@ const isPasswordExpired = (passwordLastUpdated, expirationDays = 90) => {
   return daysSinceUpdate >= expirationDays;
 };
 
+
+
+/**
+ * Check if the password is in the common passwords list or is a simple variant
+ * @param {string} password - The plain text password to check
+ * @returns {boolean} - True if password is common/unsafe, false otherwise
+ */
+const isCommonPassword = (password) => {
+  if (!password) return false;
+
+  const exactMatch = commonPasswords.includes(password);
+  if (exactMatch) {
+    securityLogger.logCommonPasswordAttempt(password, 'EXACT_MATCH');
+    return true;
+  }
+
+  const lowerCase = password.toLowerCase();
+  const caseInsensitiveMatch = commonPasswords.includes(lowerCase);
+  if (caseInsensitiveMatch) {
+    securityLogger.logCommonPasswordAttempt(password, 'CASE_INSENSITIVE_MATCH');
+    return true;
+  }
+
+  const noSpaces = password.replace(/\s+/g, '');
+  const noSpacesMatch = commonPasswords.includes(noSpaces);
+   if (noSpacesMatch) {
+    securityLogger.logCommonPasswordAttempt(password, 'NO_SPACES_MATCH');
+    return true;
+  }
+  
+  // Leetspeak check
+  const leetMap = {
+    '@': 'a',
+    '0': 'o',
+    '1': 'l', // or 'i'
+    '$': 's',
+    '3': 'e',
+    '4': 'a',
+    '5': 's',
+    '7': 't',
+    '!': 'i' 
+  };
+  
+  let normalizedLeet = lowerCase;
+  for (const [char, replacement] of Object.entries(leetMap)) {
+      normalizedLeet = normalizedLeet.split(char).join(replacement);
+  }
+
+  if (commonPasswords.includes(normalizedLeet)) {
+       securityLogger.logCommonPasswordAttempt(password, 'LEETSPEAK_MATCH');
+       return true;
+  }
+
+  return false;
+};
+
 module.exports = {
   checkPasswordHistory,
   addToPasswordHistory,
-  isPasswordExpired
+  isPasswordExpired,
+  isCommonPassword
 };

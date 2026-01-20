@@ -166,11 +166,34 @@ const logSuspiciousActivity = async (activity, metadata = {}, req = null) => {
   });
 };
 
+/**
+ * Log common/weak password attempt
+ * @param {string} password - The attempted password (masked in logs)
+ * @param {string} matchType - Type of match (EXACT, CASE_INSENSITIVE, etc.)
+ * @param {Object} req - Request object (optional)
+ */
+const logCommonPasswordAttempt = async (password, matchType, req = null) => {
+  logger.warn('Common password usage attempt', {
+    action: 'COMMON_PASSWORD_ATTEMPT',
+    matchType,
+    timestamp: new Date().toISOString()
+  });
+
+  await logActivity({
+    req,
+    action: 'COMMON_PASSWORD_ATTEMPT',
+    module: 'Security',
+    metadata: { matchType },
+    level: 'warn'
+  });
+};
+
 module.exports = {
   logPasswordChangeAttempt,
   logPasswordReuseAttempt,
   logExpiredPasswordLogin,
   logFailedLogin,
   logSuccessfulLogin,
-  logSuspiciousActivity
+  logSuspiciousActivity,
+  logCommonPasswordAttempt
 };
