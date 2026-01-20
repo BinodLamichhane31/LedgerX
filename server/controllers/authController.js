@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const { matchedData } = require("express-validator");
 const sendEmail = require("../utils/sendEmail");
+const { validateImageFile } = require("../utils/fileValidation");
 
 const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
   const token = jwt.sign({id: user._id, role: user.role},process.env.JWT_SECRET,{
@@ -630,7 +631,21 @@ exports.uploadProfileImage = async (req, res) => {
         message:"No image file uploaded."
       })
     }
+
     const relativePath = path.join("uploads",req.file.filename)
+    const absolutePath = path.join(__dirname, "..", relativePath);
+
+    // Validate magic bytes
+    const validationResult = await validateImageFile(absolutePath);
+    if (!validationResult.isValid) {
+      // Delete the invalid file
+      fs.unlinkSync(absolutePath);
+      return res.status(400).json({
+        success: false,
+        message: validationResult.error || "Invalid file content."
+      });
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { profileImage: relativePath },
@@ -642,7 +657,7 @@ exports.uploadProfileImage = async (req, res) => {
         userId,
         action: 'PROFILE_IMAGE_UPDATE',
         module: 'Auth',
-        metadata: { filename: req.file.filename }
+        metadata: { filename: req.file.filename, detectedType: validationResult.detectedType }
     });
 
     return res.status(200).json({

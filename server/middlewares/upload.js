@@ -2,6 +2,7 @@ const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 const path = require("path");
 const fs = require("fs");
+const { getSafeExtension } = require("../utils/fileValidation");
 
 const uploadPath = path.join(__dirname, "..", "uploads");
 if (!fs.existsSync(uploadPath)) {
@@ -11,15 +12,21 @@ if (!fs.existsSync(uploadPath)) {
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadPath),
   filename: (req, file, cb) => {
-    const ext = file.originalname.split(".").pop().toLowerCase();
-    cb(null, `${file.fieldname}-${uuidv4()}.${ext}`);
+    const ext = getSafeExtension(file.mimetype);
+    if (!ext) {
+      return cb(new Error("Invalid file type: " + file.mimetype), null);
+    }
+    cb(null, `${file.fieldname}-${uuidv4()}${ext}`);
   }
 });
 
 const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 const fileFilter = (req, file, cb) => {
-  if (allowedTypes.includes(file.mimetype)) cb(null, true);
-  else cb(new Error("Only JPG, PNG, and WEBP images are allowed."), false);
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only JPG, PNG, and WEBP images are allowed."), false);
+  }
 };
 
 const upload = multer({  

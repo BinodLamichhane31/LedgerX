@@ -81,4 +81,26 @@ app.use("/api/bot", botRoutes);
 app.use("/api/payments", paymentRoutes);
 
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+
+  if (err instanceof require('multer').MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ success: false, message: 'File too large. Max size is 5MB.' });
+    }
+  }
+
+  // Handle custom errors from fileFilter
+  if (err.message === 'Only JPG, PNG, and WEBP images are allowed.') {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+
+  res.status(500).json({
+    success: false,
+    message: 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
 module.exports = app;
