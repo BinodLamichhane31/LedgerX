@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
-import { Mail, ArrowLeft, Wallet } from 'lucide-react';
+import { Mail, ArrowLeft, Wallet, Loader2 } from 'lucide-react';
 import { useForgotPassword } from '../../hooks/auth/useForgotPassword';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { Link } from 'react-router-dom';
@@ -122,9 +122,14 @@ const ForgotPasswordPage = () => {
                     <button
                         type="submit"
                         disabled={isLoading || !recaptchaToken}
-                        className="w-full px-4 py-3.5 font-bold text-white transition-all transform bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center w-full px-4 py-3.5 font-bold text-white transition-all transform bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                    {isLoading ? 'Sending Link...' : 'Send Reset Link'}
+                    {isLoading ? (
+                        <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Sending Link...
+                        </>
+                    ) : 'Send Reset Link'}
                     </button>
                 </Form>
                 </Formik>

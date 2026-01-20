@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { forgotPasswordService } from "../../services/authService";
 
 export const useForgotPassword = () => {
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: forgotPasswordService,
     onSuccess: (response) => {
       // Always show success message
@@ -15,4 +15,6 @@ export const useForgotPassword = () => {
       toast.error(error.message || "Request failed. Please try again.");
     }
   });
+
+  return { ...mutation, isLoading: mutation.isPending };
 };

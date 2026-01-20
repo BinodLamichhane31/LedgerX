@@ -830,7 +830,21 @@ exports.forgotPassword = async (req, res) => {
         message: "If that email is registered, you will receive a password reset link.",
       });
     } catch (err) {
-      console.log(err);
+      console.error("Email send failed:", err.message);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log("###########################################################");
+        console.log("DEV MODE - Password Reset Link:");
+        console.log(resetUrl);
+        console.log("###########################################################");
+        
+        // Return success in dev mode so we can test the flow
+        return res.status(200).json({
+          success: true,
+          message: "Developer Mode: Check server console for reset link.",
+        });
+      }
+
       user.passwordResetToken = undefined;
       user.passwordResetExpires = undefined;
 
@@ -871,6 +885,30 @@ exports.resetPassword = async (req, res) => {
         success: false,
         message: "Invalid token",
       });
+    }
+
+    // Check if new password contains user's first or last name
+    const lowerPassword = password.toLowerCase();
+    if (user.fname && lowerPassword.includes(user.fname.toLowerCase())) {
+        return res.status(400).json({
+            success: false,
+            message: "Password cannot contain your first name.",
+        });
+    }
+    if (user.lname && lowerPassword.includes(user.lname.toLowerCase())) {
+        return res.status(400).json({
+            success: false,
+            message: "Password cannot contain your last name.",
+        });
+    }
+
+    // Check if new password matches any password in history
+    const isPasswordReused = await checkPasswordHistory(password, user.passwordHistory);
+    if (isPasswordReused) {
+        return res.status(400).json({
+            success: false,
+            message: "This password has been used recently. Please choose a different password.",
+        });
     }
 
     // Set new password

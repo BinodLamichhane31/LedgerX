@@ -6,7 +6,7 @@ import { resetPasswordService } from "../../services/authService";
 export const useResetPassword = () => {
   const navigate = useNavigate();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: ({ token, ...data }) => resetPasswordService(token, data),
     onSuccess: (response) => {
       toast.success(response.message || "Password reset successful. Please login.");
@@ -16,4 +16,6 @@ export const useResetPassword = () => {
       toast.error(error.message || "Failed to reset password.");
     }
   });
+  
+  return { ...mutation, isLoading: mutation.isPending };
 };
