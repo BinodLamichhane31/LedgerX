@@ -193,7 +193,6 @@ const DetailsTab = ({ supplier }) => (
 
 const TransactionsTab = ({ supplier }) => {
   const { currentShop } = useContext(AuthContext);
-  console.log(currentShop);
   
   const { data, isLoading, isError, error } = useGetTransactions({
     shopId: currentShop?._id,

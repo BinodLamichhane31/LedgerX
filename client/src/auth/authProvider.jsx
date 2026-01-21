@@ -114,7 +114,6 @@ const AuthContextProvider = ({ children }) => {
             setIsLoggingOut(false);
             window.location.href = '/login'; // Redirect to login page instead of reload
         }, 500); 
-        console.log('logged out');
     }, [queryClient]);
 
     const showQueuedToast = () => {
@@ -187,8 +186,7 @@ const AuthContextProvider = ({ children }) => {
                         }
                     }
                 } catch (error) {
-                    console.log("No active session found or failed to fetch profile.");
-                    // setUser(null) is implicit
+                    // Auth check failed or no session
                 } finally {
                     setAuthLoading(false);
                 }
@@ -207,6 +205,7 @@ const AuthContextProvider = ({ children }) => {
         <AuthContext.Provider
             value={{
                 user,
+                setUser,
                 shops: Array.isArray(shops) ? shops : [], 
                 currentShop,
                 loading: shouldShowLoading,

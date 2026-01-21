@@ -26,16 +26,22 @@ import {
   uploadProfileImageService,
   getProfileService
 } from '../services/authService';
+import { useGetProfile } from '../hooks/auth/useProfile';
 import { useDisableMFA } from '../hooks/auth/useTwoFactor';
 
 import MFASetupModal from '../components/auth/MFASetupModal';
 import DisableMFADialog from '../components/auth/DisableMFADialog';
 import ChangePasswordDialog from '../components/auth/ChangePasswordDialog';
 
-const API_IMAGE_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || "http://localhost:6060";
+const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
 
 const ProfilePage = () => {
   const { user, setUser } = useContext(AuthContext);
+  const { data: dbProfile, refetch: refetchProfile } = useGetProfile();
+  
+  // Use DB data if available, fallback to context
+  const currentUser = dbProfile?.data || user;
+
   const [activeTab, setActiveTab] = useState('account'); // 'account' or 'security'
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -54,14 +60,28 @@ const ProfilePage = () => {
   const { mutate: disableMFA, isLoading: isDisablingMFA } = useDisableMFA();
 
   useEffect(() => {
-    if (user) {
+    if (currentUser) {
       setProfileData({
-        fname: user.fname || '',
-        email: user.email || '',
-        phone: user.phone || ''
+        fname: currentUser.fname || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || ''
       });
+      
+      // Keep context in sync if db data is fresher
+      if (dbProfile?.data && JSON.stringify(dbProfile.data) !== JSON.stringify(user)) {
+        setUser(dbProfile.data);
+      }
     }
-  }, [user]);
+  }, [currentUser, dbProfile, user, setUser]);
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    // Handle both forward and backward slashes for cross-platform robustness
+    const filename = imagePath.split(/[/\\]/).pop();
+    return `${API_URL}/uploads/${filename}`;
+  };
+
+  const imageUrl = getImageUrl(currentUser?.profileImage);
 
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
@@ -71,7 +91,8 @@ const ProfilePage = () => {
       setUser(updatedUser.data);
       toast.success('Profile updated successfully');
     } catch (error) {
-      toast.error(error.message || 'Failed to update profile');
+      const errorMessage = error.response?.status === 400 ? error.message : "Something went wrong while updating your profile. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +105,8 @@ const ProfilePage = () => {
       toast.success('Password changed successfully');
       setIsChangePasswordDialogOpen(false);
     } catch (error) {
-      toast.error(error.message || 'Failed to change password');
+      const errorMessage = error.response?.status === 401 ? "The current password you entered is incorrect." : "An error occurred while changing your password. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +125,8 @@ const ProfilePage = () => {
       setUser(response.data);
       toast.success('Profile image updated');
     } catch (error) {
-      toast.error(error.message || 'Failed to upload image');
+      const errorMessage = error.response?.status === 413 ? "The image file is too large. Please choose a smaller one." : "Could not upload the image. Please try a different file.";
+      toast.error(errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -126,11 +149,15 @@ const ProfilePage = () => {
           <div className="flex flex-col sm:flex-row items-center gap-6 relative">
             <div className="relative group">
               <div className="w-24 h-24 rounded-2xl overflow-hidden ring-4 ring-indigo-50 border border-slate-100 flex items-center justify-center bg-slate-100">
-                {user?.image ? (
+                {imageUrl ? (
                   <img 
-                    src={`${API_IMAGE_URL}${user.image}`} 
+                    src={imageUrl} 
                     alt="Profile" 
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = ''; // Fallback to icon on error
+                    }}
                   />
                 ) : (
                   <User className="w-12 h-12 text-slate-400" />
@@ -141,23 +168,23 @@ const ProfilePage = () => {
                   </div>
                 )}
               </div>
-              <label className="absolute -bottom-2 -right-2 p-2 bg-indigo-600 rounded-xl text-white shadow-lg cursor-pointer hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95">
-                <Camera size={16} />
+              <label className="absolute bottom-0 right-0 p-1 bg-indigo-600 rounded-xl text-white shadow-xl cursor-pointer hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95 translate-x-1/4 translate-y-1/4 ring-4 ring-white">
+                <Camera size={18} />
                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
               </label>
             </div>
 
             <div className="text-center sm:text-left space-y-1">
-              <h1 className="text-2xl font-bold text-slate-900">{user?.fname}</h1>
+              <h1 className="text-2xl font-bold text-slate-900">{currentUser?.fname} {currentUser?.lname}</h1>
               <p className="text-slate-500 font-medium flex items-center justify-center sm:justify-start gap-1.5">
                 <Mail size={14} className="text-slate-400" />
-                {user?.email}
+                {currentUser?.email}
               </p>
               <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2">
                 <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100 uppercase tracking-wider">
-                  {user?.role}
+                  {currentUser?.role}
                 </span>
-                {user?.mfa?.enabled ? (
+                {currentUser?.mfa?.enabled ? (
                   <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-100 flex items-center gap-1">
                     <ShieldCheck size={12} /> 2FA Active
                   </span>

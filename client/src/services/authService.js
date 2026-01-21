@@ -36,7 +36,6 @@ export const logoutUserService = async () =>{
 export const getProfileService = async () => {
   try {
     const res = await getProfileApi();
-    console.log("service:",res.data);
     
     return res.data; 
   } catch (error) {

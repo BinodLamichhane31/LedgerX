@@ -25,7 +25,6 @@ const ProfileSection = ({ user, logout }) => {
   };
 
   const imageUrl = getImageUrl(user?.profileImage);
-  console.log(imageUrl);
 
   const handleLogout = () => {
     // Call logout directly from context - no API call needed

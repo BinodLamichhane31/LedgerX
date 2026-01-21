@@ -27,7 +27,6 @@ const LoginPage = () => {
     }
   }, [location]);
 
-  console.log("Rendering LoginPage");
   return (
     <div className="flex w-full min-h-[calc(100vh-140px)]">
       {/* Left Side - Minimal Brand Section */}

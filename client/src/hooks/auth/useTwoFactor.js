@@ -11,11 +11,11 @@ export const useVerifySetup = () => {
     return useMutation({
         mutationFn: verifySetupService,
         onSuccess: (data) => {
-            toast.success(data.message || "2FA Enabled Successfully");
+            toast.success(data.message || "2FA Enabled successfully");
             queryClient.invalidateQueries(['profile']);
         },
         onError: (error) => {
-            toast.error(error.message || "Failed to verify setup");
+            toast.error("Invalid verification code. Please try again.");
         }
     });
 };
@@ -25,11 +25,12 @@ export const useDisableMFA = () => {
     return useMutation({
         mutationFn: disableMFAService,
         onSuccess: (data) => {
-            toast.success(data.message || "2FA Disabled");
+            toast.success(data.message || "2FA Disabled successfully");
             queryClient.invalidateQueries(['profile']);
         },
         onError: (error) => {
-             toast.error(error.message || "Failed to disable MFA");
+             const message = error.response?.status === 401 ? "Incorrect password or authentication code." : "Something went wrong while disabling MFA. Please try again.";
+             toast.error(message);
         }
     });
 };

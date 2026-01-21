@@ -77,8 +77,6 @@ const PaymentStatusPage = () => {
 
 
     const renderContent = () => {
-        console.log(pageStatus);
-        
         // Render based on our persistent `pageStatus` state, not the transient hook state.
         switch (pageStatus) {
             case 'success':

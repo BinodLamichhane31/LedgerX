@@ -191,8 +191,6 @@ const DetailsTab = ({ customer }) => (
 );
 
 const TransactionsTab = ({ customer }) => {  
-    console.log(customer)
-
   const { currentShop } = useContext(AuthContext);
 
   const { data, isLoading, isError, error } = useGetTransactions({

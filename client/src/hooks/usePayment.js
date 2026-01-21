@@ -23,8 +23,6 @@ const postToEsewa = (paymentDetails) => {
         fu: paymentDetails.fu                // Failure URL
     };
 
-    console.log('Submitting to eSewa with fields:', fields);
-
     // Create hidden form fields
     Object.keys(fields).forEach(key => {
         if (fields[key] !== undefined) {
@@ -46,7 +44,6 @@ export const useInitiateSubscription = () => {
         mutationFn: initiateSubscriptionService,
         onSuccess: (data) => {
             toast.info("Redirecting to eSewa for payment...");
-            console.log('Payment details received:', data.paymentDetails);
             
             // Small delay to ensure toast is shown
             setTimeout(() => {
@@ -54,7 +51,6 @@ export const useInitiateSubscription = () => {
             }, 1000);
         },
         onError: (error) => {
-            console.error('Payment initiation error:', error);
             toast.error(error.message || "Could not start the payment process.");
         },
     });
@@ -66,12 +62,9 @@ export const useVerifySubscription = () => {
         mutationFn: (verificationData) => verifySubscriptionService(verificationData),
         onSuccess: (data) => {
             toast.success(data.message || "Your subscription has been upgraded!");
-            console.log("✅ [HOOK ONSUCCESS] Global success handler triggered.", data);
             queryClient.invalidateQueries({ queryKey: ['profile'] });
         },
         onError: (error) => {
-            console.log("[HOOK ONERRON] Global error handler triggered.", error);
-
             toast.error(error.message || "We couldn't verify your payment.");
         },
     });
