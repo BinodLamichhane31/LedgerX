@@ -3,6 +3,7 @@ const QRCode = require("qrcode");
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const { encrypt, decrypt } = require("../utils/encryption");
+const { logActivity } = require("../services/activityLogger");
 
 const hashCodes = async (codes) => {
     return Promise.all(codes.map(code => bcrypt.hash(code, 10)));
@@ -17,7 +18,6 @@ exports.setupMFA = async (req, res) => {
         });
 
         // Store temp secret
-        // Store temp secret
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
         
@@ -29,7 +29,14 @@ exports.setupMFA = async (req, res) => {
         user.mfa.tempSecret = encrypt(secret.base32);
         user.markModified('mfa');
         await user.save();
-        console.log("MFA SETUP: Saved tempSecret for user:", user._id);
+        
+        // Log MFA setup initiation
+        await logActivity({
+            userId: req.user._id,
+            action: 'MFA_SETUP_STARTED',
+            module: 'Auth',
+            metadata: { ip: req.ip }
+        });
 
         // Generate QR Code
         QRCode.toDataURL(secret.otpauth_url, (err, data_url) => {
@@ -86,10 +93,12 @@ exports.verifySetup = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid token. Please try again or check your device time." });
         }
 
-        // Generate Recovery Codes
-        const recoveryCodes = Array.from({ length: 10 }, () => 
-            Math.random().toString(36).substring(2, 10).toUpperCase()
-        );
+        // Generate Recovery Codes (2 codes, 6 digits each)
+        const recoveryCodes = [];
+        for (let i = 0; i < 2; i++) {
+            const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit number
+            recoveryCodes.push(code);
+        }
         const hashedRecoveryCodes = await hashCodes(recoveryCodes);
 
         // Commit MFA
@@ -97,8 +106,16 @@ exports.verifySetup = async (req, res) => {
         user.mfa.secret = encrypt(decryptedSecret); 
         user.mfa.tempSecret = undefined;
         user.mfa.recoveryCodes = hashedRecoveryCodes;
-        user.mfa.lastTotpStep = Math.floor(Date.now() / 30000); // Initialize step
+        user.mfa.lastTotpStep = Math.floor(Date.now() / 30000);
         await user.save();
+        
+        // Log MFA enablement
+        await logActivity({
+            userId: req.user._id,
+            action: 'MFA_ENABLED',
+            module: 'Auth',
+            metadata: { ip: req.ip, recoveryCodesGenerated: recoveryCodes.length }
+        });
 
         res.json({
             success: true,
@@ -145,6 +162,14 @@ exports.disableMFA = async (req, res) => {
         user.mfa.secret = undefined;
         user.mfa.recoveryCodes = [];
         await user.save();
+        
+        // Log MFA disablement
+        await logActivity({
+            userId: req.user._id,
+            action: 'MFA_DISABLED',
+            module: 'Auth',
+            metadata: { ip: req.ip }
+        });
 
         res.json({ success: true, message: "MFA disabled successfully" });
 

@@ -394,8 +394,16 @@ exports.loginUser = async (req, res) => {
         // Create temp token for MFA verification
         const tempToken = jwt.sign({ id: getUser._id, mfaPending: true }, process.env.JWT_SECRET, { expiresIn: '10m' });
         
+        // Log MFA challenge issued
+        await logActivity({
+            userId: getUser._id,
+            action: 'MFA_CHALLENGE_ISSUED',
+            module: 'Auth',
+            metadata: { email, ip: req.ip }
+        });
+        
         return res.status(200).json({
-            success: false, // Not fully logged in
+            success: false,
             mfaRequired: true,
             tempToken,
             message: "MFA code required"
@@ -684,7 +692,6 @@ exports.viewProfileImage = (req, res) => {
 
 exports.verifyMFA = async (req, res) => {
     const { code, recoveryCode } = req.body;
-    // req.user is populated by protect middleware which we will assume is checking the tempToken
     const userId = req.user._id;
 
     try {
@@ -707,8 +714,6 @@ exports.verifyMFA = async (req, res) => {
             });
 
             if (delta) {
-                // If delta is valid object { delta: 0, ... }
-                // Calculate actual step: current_step + delta
                 const currentStep = Math.floor(Date.now() / 30000);
                 const tokenStep = currentStep + delta.delta;
 
@@ -719,25 +724,54 @@ exports.verifyMFA = async (req, res) => {
                     verified = true;
                     user.mfa.lastTotpStep = tokenStep;
                     await user.save();
+                    
+                    // Log successful TOTP verification
+                    await logActivity({
+                        userId: user._id,
+                        action: 'MFA_SUCCESS',
+                        module: 'Auth',
+                        metadata: { method: 'totp', ip: req.ip }
+                    });
                 }
             } else {
                 verified = false;
+                // Log failed TOTP attempt
+                await logActivity({
+                    userId: user._id,
+                    action: 'MFA_FAILED',
+                    module: 'Auth',
+                    metadata: { method: 'totp', ip: req.ip }
+                });
             }
         } else if (recoveryCode) {
             // Recovery Code Verification
-            // Compare hashed codes
-             // Since we stored hashes, we need to iterate and compare
-             // NOTE: This can be slow if many codes, but max 10 is fine.
-             for (const hash of user.mfa.recoveryCodes) {
-                 const isMatch = await bcrypt.compare(recoveryCode, hash);
-                 if (isMatch) {
-                     verified = true;
-                     // Remove used hash
-                     user.mfa.recoveryCodes = user.mfa.recoveryCodes.filter(h => h !== hash);
-                     await user.save();
-                     break;
-                 }
-             }
+            for (let i = 0; i < user.mfa.recoveryCodes.length; i++) {
+                const isMatch = await bcrypt.compare(recoveryCode, user.mfa.recoveryCodes[i]);
+                if (isMatch) {
+                    verified = true;
+                    // Remove used recovery code (single-use)
+                    user.mfa.recoveryCodes.splice(i, 1);
+                    await user.save();
+                    
+                    // Log recovery code usage
+                    await logActivity({
+                        userId: user._id,
+                        action: 'RECOVERY_CODE_USED',
+                        module: 'Auth',
+                        metadata: { remainingCodes: user.mfa.recoveryCodes.length }
+                    });
+                    break;
+                }
+            }
+            if (!verified) {
+                await logActivity({
+                    userId: user._id,
+                    action: 'MFA_FAILED',
+                    module: 'Auth',
+                    metadata: { method: 'recovery_code', ip: req.ip }
+                });
+                return res.status(401).json({ success: false, message: "Invalid recovery code" });
+            }
         } else {
              return res.status(400).json({ success: false, message: "Code or recovery code required" });
         }

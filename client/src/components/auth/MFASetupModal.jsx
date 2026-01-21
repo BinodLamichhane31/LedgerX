@@ -140,11 +140,11 @@ const MFASetupModal = ({ isOpen, onClose }) => {
                                     <Lock className="w-4 h-4" /> Save your recovery codes
                                 </h4>
                                 <p className="text-sm text-amber-900/80 mb-4">
-                                    If you lose your device, you can use these single-use codes to access your account.
+                                    If you lose your device, you can use these 6-digit codes to access your account. Each code can only be used once.
                                 </p>
-                                <div className="grid grid-cols-2 gap-2 font-mono text-sm bg-white p-3 rounded border border-amber-100">
+                                <div className="flex flex-col gap-2 font-mono text-lg bg-white p-4 rounded border border-amber-100">
                                     {recoveryCodes.map((code, i) => (
-                                        <div key={i} className="text-slate-600">{code}</div>
+                                        <div key={i} className="text-slate-700 font-semibold text-center py-2 bg-slate-50 rounded">{code}</div>
                                     ))}
                                 </div>
                             </div>

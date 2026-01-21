@@ -12,14 +12,14 @@ const MfaVerifyPage = () => {
     const navigate = useNavigate();
     const { login } = useContext(AuthContext);
     const [code, setCode] = useState('');
+    const [failedAttempts, setFailedAttempts] = useState(0);
     
     const tempToken = location.state?.tempToken;
     const email = location.state?.email;
 
     useEffect(() => {
         if (!tempToken) {
-            toast.error("Invalid session. Please login again.");
-            navigate('/login');
+            navigate('/login', { replace: true });
         }
     }, [tempToken, navigate]);
 
@@ -32,9 +32,16 @@ const MfaVerifyPage = () => {
             navigate('/dashboard');
         },
         onError: (error) => {
+            // Track failed attempts
+            setFailedAttempts(prev => prev + 1);
+            
             // Show user-friendly error message
             const message = error.response?.data?.message;
-            if (message === "Invalid token" || message === "Invalid TOTP code") {
+            const status = error.response?.status;
+            
+            if (status === 429) {
+                toast.error("Too many attempts. Please try again later.");
+            } else if (message === "Invalid token" || message === "Invalid TOTP code") {
                 toast.error("Invalid code. Please try again.");
             } else if (message === "MFA not enabled for this user.") {
                 toast.error("Two-factor authentication is not enabled for this account.");
@@ -78,7 +85,7 @@ const MfaVerifyPage = () => {
                                 <input
                                     type="text"
                                     value={code}
-                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                     placeholder="123456"
                                     className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono text-lg tracking-wider text-center"
                                     maxLength={6}
@@ -86,6 +93,23 @@ const MfaVerifyPage = () => {
                                 />
                             </div>
                         </div>
+
+                        {/* Failed attempts warning */}
+                        {failedAttempts > 0 && failedAttempts < 5 && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <p className="text-sm text-amber-800">
+                                    ⚠️ {failedAttempts} failed attempt{failedAttempts > 1 ? 's' : ''}. 
+                                    {5 - failedAttempts} attempt{5 - failedAttempts > 1 ? 's' : ''} remaining before temporary lockout.
+                                </p>
+                            </div>
+                        )}
+                        {failedAttempts >= 5 && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-sm text-red-800">
+                                    🔒 Too many failed attempts. Please wait 15 minutes before trying again.
+                                </p>
+                            </div>
+                        )}
 
                         <button
                             type="submit"
