@@ -12,23 +12,23 @@ const axios = require('axios');
 const { matchedData } = require("express-validator");
 const sendEmail = require("../utils/sendEmail");
 const { validateImageFile } = require("../utils/fileValidation");
+const speakeasy = require("speakeasy");
+const { decrypt } = require("../utils/encryption");
 
 const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
   const token = jwt.sign({id: user._id, role: user.role},process.env.JWT_SECRET,{
-    expiresIn:process.env.JWT_EXPIRE
-  })
+      expiresIn: process.env.JWT_EXPIRE
+  });
+
   const options = {
-        expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000),
-        httpOnly: true,
-        sameSite: 'strict',
-    };
-
-  if(process.env.NODE_ENV=="production"){
-    options.secure = true
+    expires: new Date(Date.now()+process.env.JWT_COOKIE_EXPIRE*24*60*60*1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' 
+  };
+   
+  if (process.env.NODE_ENV === 'production') {
+    options.sameSite = 'None';
   }
-
-  const userResponse = { ...user.toObject() };
-  delete userResponse.password;
 
   // Log successful login
   await logActivity({
@@ -39,26 +39,25 @@ const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
       metadata: { email: user.email, role: user.role }
   });
 
-  res.status(statusCode)
-    .cookie('token',token,options)
-    .json({
-      success:true,
-      message:"Login successful.",
-      data: {
-        user: {
-          id: user._id,
-          fname: user.fname,
-          lname: user.lname,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-        },
-        shops: user.shops,
-        currentShopId : currentShop ? currentShop._id : null
+  res.status(statusCode).cookie("token",token, options).json({
+    success: true,
+    message:"Login successful.",
+    data: {
+      user:{
+        id: user._id,
+        fname: user.fname,
+        lname: user.lname,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        profileImage: user.profileImage,
+        shops: user.shops, // Include shops in response
+        currentShopId: currentShop ? currentShop._id : null,
+        passwordLastUpdated: user.passwordLastUpdated
       }
-    })
-
-}
+    }
+  });
+};
 
 
 /**
@@ -303,11 +302,6 @@ exports.googleOAuthCallback = async (req, res) => {
   }
 };
 
-/**
- * @desc    Authenticate user and generate token (login)
- * @route   POST /api/v1/auth/login
- * @access  Public
- */
 exports.loginUser = async (req, res) => {
   const data = matchedData(req);
   const { email, password } = data;
@@ -395,8 +389,17 @@ exports.loginUser = async (req, res) => {
 
     securityLogger.logSuccessfulLogin(getUser._id.toString(), email);
 
-    if(getUser.role === 'admin'){
-      await sendTokenToResponse(getUser, 200, res, null, req)
+    // Check for MFA
+    if (getUser.mfa && getUser.mfa.enabled) {
+        // Create temp token for MFA verification
+        const tempToken = jwt.sign({ id: getUser._id, mfaPending: true }, process.env.JWT_SECRET, { expiresIn: '10m' });
+        
+        return res.status(200).json({
+            success: false, // Not fully logged in
+            mfaRequired: true,
+            tempToken,
+            message: "MFA code required"
+        });
     }
 
     let activeShop = null
@@ -676,18 +679,83 @@ exports.uploadProfileImage = async (req, res) => {
 exports.viewProfileImage = (req, res) => {
   const filename = req.params.filename;
   const imagePath = path.join(__dirname, "..", "uploads", filename);
-
-  if (!fs.existsSync(imagePath)) {
-
-    
-    return res.status(404).json({ 
-      success: false,
-      message: "Image not found.", 
-    });
-  }
-
-  return res.sendFile(imagePath);
+  res.sendFile(imagePath);
 };
+
+exports.verifyMFA = async (req, res) => {
+    const { code, recoveryCode } = req.body;
+    // req.user is populated by protect middleware which we will assume is checking the tempToken
+    const userId = req.user._id;
+
+    try {
+        const user = await User.findById(userId);
+        
+        if (!user.mfa.enabled) {
+             return res.status(400).json({ success: false, message: "MFA not enabled for this user." });
+        }
+
+        let verified = false;
+
+        if (code) {
+             // TOTP Verification with Anti-Replay
+            const decryptedSecret = decrypt(user.mfa.secret);
+            const delta = speakeasy.totp.verifyDelta({
+                secret: decryptedSecret,
+                encoding: "base32",
+                token: code,
+                window: 1 // Allow 30s slack
+            });
+
+            if (delta) {
+                // If delta is valid object { delta: 0, ... }
+                // Calculate actual step: current_step + delta
+                const currentStep = Math.floor(Date.now() / 30000);
+                const tokenStep = currentStep + delta.delta;
+
+                if (user.mfa.lastTotpStep && user.mfa.lastTotpStep >= tokenStep) {
+                    // Replay detected
+                    verified = false;
+                } else {
+                    verified = true;
+                    user.mfa.lastTotpStep = tokenStep;
+                    await user.save();
+                }
+            } else {
+                verified = false;
+            }
+        } else if (recoveryCode) {
+            // Recovery Code Verification
+            // Compare hashed codes
+             // Since we stored hashes, we need to iterate and compare
+             // NOTE: This can be slow if many codes, but max 10 is fine.
+             for (const hash of user.mfa.recoveryCodes) {
+                 const isMatch = await bcrypt.compare(recoveryCode, hash);
+                 if (isMatch) {
+                     verified = true;
+                     // Remove used hash
+                     user.mfa.recoveryCodes = user.mfa.recoveryCodes.filter(h => h !== hash);
+                     await user.save();
+                     break;
+                 }
+             }
+        } else {
+             return res.status(400).json({ success: false, message: "Code or recovery code required" });
+        }
+
+        if (!verified) {
+             return res.status(401).json({ success: false, message: "Invalid MFA code" });
+        }
+
+        // Success! Issue full token
+        const currentShop = user.activeShop ? await Shop.findById(user.activeShop) : null;
+        sendTokenToResponse(user, 200, res, currentShop, req);
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
 
 
 exports.switchShop = async (req, res) => {

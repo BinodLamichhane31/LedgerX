@@ -1,5 +1,5 @@
 const express = require('express')
-const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback, forgotPassword, resetPassword } = require('../controllers/authController')
+const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback, forgotPassword, resetPassword, verifyMFA } = require('../controllers/authController')
 const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation, resetPasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
@@ -36,6 +36,11 @@ router.post(
     "/login",
     ...loginMiddleware, 
     loginUser
+);
+router.post(
+    "/mfa",
+    protect, // Expects tempToken
+    verifyMFA
 );
 router.get(
     "/profile",

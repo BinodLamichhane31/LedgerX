@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 dotenv.config();   
 const userRoutes = require("./routes/userRoutes");
+const mfaRoutes = require("./routes/mfaRoutes");
 const adminRoutes = require("./routes/admin/adminRoutes");
 
 const shopRoutes = require("./routes/shopRoutes");
@@ -66,6 +67,7 @@ app.use(globalLimiter);
 app.use("/api/uploads", express.static(path.join(__dirname, 'uploads')));
 
 app.use("/api/auth", userRoutes);
+app.use("/api/mfa", mfaRoutes);
 app.use("/api/admin", adminRoutes); 
 app.use("/api/shops", shopRoutes);
 app.use("/api/customers", customerRoutes);
