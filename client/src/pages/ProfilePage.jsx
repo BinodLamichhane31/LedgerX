@@ -2,8 +2,10 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGetProfile, useUpdateProfile, useUploadProfileImage, useChangePassword } from '../hooks/auth/useProfile';
 import { toast } from 'react-toastify';
-import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown, Lock, KeyRound, Eye, EyeOff, ShieldCheck, CheckCircle } from 'lucide-react';
 import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
+import MFASetupModal from '../components/auth/MFASetupModal';
+import { useDisableMFA } from '../hooks/auth/useTwoFactor';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
 
@@ -49,6 +51,10 @@ const ProfilePage = () => {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // MFA State
+  const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
+  const { mutate: disableMFA, isLoading: isDisablingMFA } = useDisableMFA();
   
   const handlePasswordChange = (e) => setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -333,12 +339,59 @@ const ProfilePage = () => {
 
             {/* Security */}
             <div className="p-8 bg-white border shadow-sm border-slate-200 rounded-2xl">
+                {/* MFA Section */}
+                <div className="mb-8 p-6 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <ShieldCheck size={24} />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-semibold text-slate-900">Two-Factor Authentication</h4>
+                                <p className="text-sm text-slate-500">Secure your account with 2FA.</p>
+                            </div>
+                        </div>
+                        {user.mfa?.enabled ? (
+                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle size={12} className="mr-1" /> Enabled
+                             </span>
+                        ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-600">
+                                Disabled
+                            </span>
+                        )}
+                    </div>
+
+                     {user.mfa?.enabled ? (
+                        <div className="flex justify-end">
+                            <button 
+                                onClick={() => {
+                                    if(window.confirm("Are you sure you want to disable 2FA? This will reduce your account security.")) {
+                                        disableMFA({});
+                                    }
+                                }}
+                                disabled={isDisablingMFA}
+                                className="text-sm text-red-600 font-medium hover:text-red-700"
+                            >
+                                {isDisablingMFA ? "Disabling..." : "Disable 2FA"}
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setIsMfaModalOpen(true)}
+                            className="w-full py-2.5 bg-white border border-slate-300 shadow-sm text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                            Enable Two-Factor Authentication
+                        </button>
+                    )}
+                </div>
+
                 <div className="flex items-center gap-2 mb-6">
                     <div className="p-2 rounded-lg bg-indigo-50">
                         <Lock className="w-5 h-5 text-indigo-600" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold text-slate-900">Security</h3>
+                        <h3 className="text-lg font-semibold text-slate-900">Password</h3>
                         <p className="text-sm text-slate-500">Update your password to keep your account secure.</p>
                     </div>
                 </div>
@@ -428,6 +481,10 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+      <MFASetupModal 
+        isOpen={isMfaModalOpen} 
+        onClose={() => setIsMfaModalOpen(false)} 
+      />
     </div>
   );
 };
