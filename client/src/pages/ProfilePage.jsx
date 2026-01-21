@@ -1,484 +1,390 @@
-import { useEffect, useState, useRef } from 'react';
+// src/pages/ProfilePage.jsx
+
+import React, { useState, useContext, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGetProfile, useUpdateProfile, useUploadProfileImage, useChangePassword } from '../hooks/auth/useProfile';
+import { 
+  User, 
+  Mail, 
+  Phone, 
+  Lock, 
+  Shield, 
+  Camera, 
+  Loader2, 
+  CheckCircle2, 
+  KeyRound,
+  ChevronRight,
+  ShieldCheck,
+  ShieldAlert,
+  AlertCircle
+} from 'lucide-react';
+
 import { toast } from 'react-toastify';
-import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown, Lock, KeyRound, Eye, EyeOff, ShieldCheck, CheckCircle } from 'lucide-react';
-import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
-import MFASetupModal from '../components/auth/MFASetupModal';
-import DisableMFADialog from '../components/auth/DisableMFADialog';
+import { AuthContext } from '../auth/authProvider';
+import { 
+  updateProfileService, 
+  changePasswordService, 
+  uploadProfileImageService,
+  getProfileService
+} from '../services/authService';
 import { useDisableMFA } from '../hooks/auth/useTwoFactor';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
+import MFASetupModal from '../components/auth/MFASetupModal';
+import DisableMFADialog from '../components/auth/DisableMFADialog';
+import ChangePasswordDialog from '../components/auth/ChangePasswordDialog';
 
-const SkeletonLoader = () => (
-    <div className="container p-4 mx-auto sm:p-6 md:p-8">
-        <div className="w-1/3 h-8 mb-8 bg-gray-200 rounded-lg animate-pulse"></div>
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="flex flex-col items-center p-8 space-y-4 border border-gray-200 bg-white rounded-2xl animate-pulse">
-                <div className="w-40 h-40 bg-gray-300 rounded-full"></div>
-                <div className="w-4/5 h-6 bg-gray-300 rounded-lg"></div>
-                <div className="w-full h-4 bg-gray-200 rounded-lg"></div>
-                <div className="w-1/3 h-4 bg-gray-200 rounded-lg"></div>
-            </div>
-            <div className="p-8 border border-gray-200 bg-white rounded-2xl lg:col-span-2 animate-pulse">
-                <div className="w-1/2 h-6 mb-8 bg-gray-200 rounded-lg"></div>
-                <div className="space-y-8">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                        <div className="w-full h-12 bg-gray-200 rounded-lg"></div>
-                        <div className="w-full h-12 bg-gray-200 rounded-lg"></div>
-                    </div>
-                    <div className="w-full h-12 bg-gray-200 rounded-lg"></div>
-                    <div className="w-full h-12 bg-gray-200 rounded-lg"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-);
+const API_IMAGE_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || "http://localhost:6060";
 
 const ProfilePage = () => {
-  const { data: profileResponse, isLoading: isProfileLoading, isError } = useGetProfile();
-  
-  const { mutate: updateProfile, isLoading: isUpdating, isSuccess: isUpdateSuccess } = useUpdateProfile();
-  const { mutate: uploadImage, isLoading: isUploading } = useUploadProfileImage();
+  const { user, setUser } = useContext(AuthContext);
+  const [activeTab, setActiveTab] = useState('account'); // 'account' or 'security'
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const [formData, setFormData] = useState({ fname: '', lname: '', phone: '' });
-  const [buttonState, setButtonState] = useState('idle');
-  const fileInputRef = useRef(null);
-  
-  // Password Change Logic
-  const { mutate: changePassword, isLoading: isChangingPassword } = useChangePassword();
-  const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
-  const [showPasswordStrength, setShowPasswordStrength] = useState(false);
-  const [showOldPassword, setShowOldPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  // MFA State
+  // Form states
+  const [profileData, setProfileData] = useState({
+    fname: user?.fname || '',
+    email: user?.email || '',
+    phone: user?.phone || ''
+  });
+
+  // MFA & Security states
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
   const [isDisableMfaDialogOpen, setIsDisableMfaDialogOpen] = useState(false);
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
   const { mutate: disableMFA, isLoading: isDisablingMFA } = useDisableMFA();
-  
-  const handlePasswordChange = (e) => setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-
-  const validatePassword = (password) => {
-      // Min 8 chars, upper, lower, digit, special
-      if (!/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/.test(password)) {
-          return false;
-      }
-      // Check if password contains first or last name
-      const lowerPassword = password.toLowerCase();
-      if (user?.fname && lowerPassword.includes(user.fname.toLowerCase())) {
-          return false;
-      }
-      if (user?.lname && lowerPassword.includes(user.lname.toLowerCase())) {
-          return false;
-      }
-      return true;
-  };
-
-  const handlePasswordSubmit = (e) => {
-      e.preventDefault();
-      if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmNewPassword) {
-          toast.error("All password fields are required.");
-          return;
-      }
-      if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-          toast.error("New passwords do not match.");
-          return;
-      }
-      if (!validatePassword(passwordData.newPassword)) {
-          toast.error("Password must be at least 8 chars with upper, lower, number, special char, and cannot contain your name.");
-          return;
-      }
-      changePassword({
-          oldPassword: passwordData.oldPassword,
-          newPassword: passwordData.newPassword
-      }, {
-          onSuccess: () => {
-              setPasswordData({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
-          }
-      });
-  };
-
 
   useEffect(() => {
-    if (profileResponse?.data) {
-      const user = profileResponse.data;      
-      setFormData({
+    if (user) {
+      setProfileData({
         fname: user.fname || '',
-        lname: user.lname || '',
-        phone: user.phone || '',
+        email: user.email || '',
+        phone: user.phone || ''
       });
     }
-  }, [profileResponse]);
+  }, [user]);
 
-  useEffect(() => {
-    if (isUpdating) {
-        setButtonState('loading');
-    } else if (isUpdateSuccess) {
-        setButtonState('success');
-        const timer = setTimeout(() => setButtonState('idle'), 2000);
-        return () => clearTimeout(timer);
-    } else {
-        setButtonState('idle');
-    }
-  }, [isUpdating, isUpdateSuccess]);
-
-  const handleInputChange = (e) => {
-      const { name, value } = e.target;
-      setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
+  const handleProfileUpdate = async (e) => {
     e.preventDefault();
-    if (!formData.fname.trim() || !formData.lname.trim()) {
-        toast.error("First name and last name are required.");
-        return;
+    setIsLoading(true);
+    try {
+      const updatedUser = await updateProfileService(profileData);
+      setUser(updatedUser.data);
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update profile');
+    } finally {
+      setIsLoading(false);
     }
-    if (!formData.phone) {
-        toast.error("Phone number is required.");
-        return;
-    }
-    
-    // Validate Phone Format (Nepal)
-    const phoneRegex = /^(98|97|96)\d{8}$/;
-    if (!phoneRegex.test(formData.phone)) {
-        toast.error("Invalid phone number. Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)");
-        return;
-    }
-
-    updateProfile(formData, {
-        onError: (error) => {
-            if (error.response?.status === 409) {
-                toast.error(error.response.data.message || "Phone number already in use.");
-            } else if (error.response?.data?.errors) {
-                 // Handle validation errors from backend
-                 const messages = error.response.data.errors.map(err => err.msg).join(". ");
-                 toast.error(messages);
-            } else {
-                toast.error("Failed to update profile.");
-            }
-        }
-    });
   };
 
-  const handleImageUpload = (e) => {
+  const handlePasswordUpdate = async (data) => {
+    setIsLoading(true);
+    try {
+      await changePasswordService(data);
+      toast.success('Password changed successfully');
+      setIsChangePasswordDialogOpen(false);
+    } catch (error) {
+      toast.error(error.message || 'Failed to change password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("File is too large. Maximum size is 2MB.");
-      return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setIsUploading(true);
+    try {
+      const response = await uploadProfileImageService(formData);
+      setUser(response.data);
+      toast.success('Profile image updated');
+    } catch (error) {
+      toast.error(error.message || 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
     }
-    const fd = new FormData();
-    fd.append('image', file);
-    uploadImage(fd);
   };
 
-  if (isProfileLoading) return <SkeletonLoader />;
-  if (isError) return (
-    <div className="flex flex-col items-center justify-center h-full p-8 text-red-600">
-        <AlertCircle size={48} />
-        <p className="mt-4 text-xl font-semibold">Error loading profile.</p>
-        <p>Please try refreshing the page.</p>
-    </div>
-  );
-
-  const user = profileResponse.data;
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
-    const filename = imagePath.split('/').pop();
-    return `${API_URL}/uploads/${filename}`;
+  const tabVariants = {
+    hidden: { opacity: 0, x: -10 },
+    visible: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 10 }
   };
-  const imageUrl = getImageUrl(user?.profileImage);
 
   return (
-    <div className="min-h-full p-4 bg-slate-50 sm:p-6 md:p-8">
-      <div className="container mx-auto max-w-6xl">
-        <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Account Settings</h1>
-            <p className="mt-1 text-slate-500">Manage your profile and security preferences.</p>
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Header / Profile Info Card */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50" />
+          
+          <div className="flex flex-col sm:flex-row items-center gap-6 relative">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-2xl overflow-hidden ring-4 ring-indigo-50 border border-slate-100 flex items-center justify-center bg-slate-100">
+                {user?.image ? (
+                  <img 
+                    src={`${API_IMAGE_URL}${user.image}`} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-12 h-12 text-slate-400" />
+                )}
+                {isUploading && (
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                  </div>
+                )}
+              </div>
+              <label className="absolute -bottom-2 -right-2 p-2 bg-indigo-600 rounded-xl text-white shadow-lg cursor-pointer hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95">
+                <Camera size={16} />
+                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
+              </label>
+            </div>
+
+            <div className="text-center sm:text-left space-y-1">
+              <h1 className="text-2xl font-bold text-slate-900">{user?.fname}</h1>
+              <p className="text-slate-500 font-medium flex items-center justify-center sm:justify-start gap-1.5">
+                <Mail size={14} className="text-slate-400" />
+                {user?.email}
+              </p>
+              <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2">
+                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100 uppercase tracking-wider">
+                  {user?.role}
+                </span>
+                {user?.mfa?.enabled ? (
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-100 flex items-center gap-1">
+                    <ShieldCheck size={12} /> 2FA Active
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-full border border-slate-200 flex items-center gap-1">
+                    <ShieldAlert size={12} /> 2FA Disabled
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Profile Card */}
-          <div className="flex flex-col items-center p-8 text-center bg-white border shadow-sm border-slate-200 rounded-2xl h-fit">
-              <div className="relative group mb-4">
-                <div className="relative overflow-hidden rounded-full w-32 h-32 ring-4 ring-slate-50">
-                    {imageUrl ? (
-                    <img src={imageUrl} alt="Profile" className="object-cover w-full h-full" />
-                    ) : (
-                    <div className="flex items-center justify-center w-full h-full font-bold text-white bg-indigo-600 text-5xl">
-                        {user?.fname?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                    )}
-                    {isUploading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    </div>
-                    )}
-                </div>
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="absolute bottom-0 right-0 p-2.5 text-white bg-slate-900 rounded-full shadow-lg hover:bg-slate-800 transition-colors"
-                    aria-label="Change profile picture"
-                >
-                    <Camera size={16} />
-                </button>
-                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/png, image/jpeg, image/jpg" className="hidden"/>
-              </div>
-            
-            <h2 className="text-xl font-bold text-slate-900">{`${user.fname} ${user.lname}`}</h2>
-            <p className="text-sm text-slate-500 mb-4">{user.email}</p>
-            
-            <div className="flex gap-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                    {user.role}
-                </span>
-                {user.subscription?.plan === 'PRO' && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                        <Crown size={12} className="mr-1"/> PRO
-                    </span>
-                )}
-            </div>
-          </div>
+        {/* Tabs Navigation */}
+        <div className="flex p-1.5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+          <button
+            onClick={() => setActiveTab('account')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-all ${
+              activeTab === 'account' 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <User size={18} />
+            Account Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-all ${
+              activeTab === 'security' 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Lock size={18} />
+            Security & MFA
+          </button>
+        </div>
 
-          <div className="space-y-8 lg:col-span-2">
-            {/* Personal Details */}
-            <div className="p-8 bg-white border shadow-sm border-slate-200 rounded-2xl">
-                <div className="flex items-center justify-between mb-6">
-                     <h3 className="text-lg font-semibold text-slate-900">Personal Information</h3>
-                </div>
-               
-                <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                        <label htmlFor="fname" className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                        <div className="relative">
-                            <User className="absolute w-4 h-4 text-slate-400 left-3 top-1/2 -translate-y-1/2" />
-                            <input 
-                                type="text" 
-                                name="fname" 
-                                id="fname" 
-                                value={formData.fname} 
-                                onChange={handleInputChange} 
-                                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
-                                required 
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label htmlFor="lname" className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                        <div className="relative">
-                            <User className="absolute w-4 h-4 text-slate-400 left-3 top-1/2 -translate-y-1/2" />
-                            <input 
-                                type="text" 
-                                name="lname" 
-                                id="lname" 
-                                value={formData.lname} 
-                                onChange={handleInputChange} 
-                                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
-                                required 
-                            />
-                        </div>
-                    </div>
+        {/* Tab Content */}
+        <div className="relative">
+          <AnimatePresence mode="wait">
+            {activeTab === 'account' ? (
+              <motion.div
+                key="account"
+                variants={tabVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ duration: 0.2 }}
+                className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm"
+              >
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-slate-900">Personal Information</h3>
+                  <p className="text-sm text-slate-500">Update your basic profile information.</p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                        <div className="relative">
-                            <Mail className="absolute w-4 h-4 text-slate-400 left-3 top-1/2 -translate-y-1/2" />
-                            <input 
-                                type="email" 
-                                name="email" 
-                                id="email" 
-                                value={user.email} 
-                                disabled 
-                                className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-500 sm:text-sm cursor-not-allowed" 
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                        <div className="relative">
-                            <Phone className="absolute w-4 h-4 text-slate-400 left-3 top-1/2 -translate-y-1/2" />
-                            <input 
-                                type="tel" 
-                                name="phone" 
-                                id="phone" 
-                                value={formData.phone} 
-                                onChange={handleInputChange} 
-                                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
-                            />
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="flex justify-end pt-2">
-                    <button 
-                    type="submit" 
-                    disabled={buttonState !== 'idle'}
-                    className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white transition-all bg-indigo-600 border border-transparent rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70 min-w-[120px]"
-                    >
-                    {buttonState === 'loading' ? (
-                        <>
-                            <Loader2 size={16} className="mr-2 animate-spin" /> Saving...
-                        </>
-                    ) : buttonState === 'success' ? (
-                        <>
-                            <Check size={16} className="mr-2" /> Saved
-                        </>
-                    ) : (
-                        <>
-                            <Save size={16} className="mr-2" /> Save Changes
-                        </>
-                    )}
-                    </button>
-                </div>
-                </form>
-            </div>
-
-            {/* Security */}
-            <div className="p-8 bg-white border shadow-sm border-slate-200 rounded-2xl">
-                {/* MFA Section */}
-                <div className="mb-8 p-6 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
-                                <ShieldCheck size={24} />
-                            </div>
-                            <div>
-                                <h4 className="text-base font-semibold text-slate-900">Two-Factor Authentication</h4>
-                                <p className="text-sm text-slate-500">Secure your account with 2FA.</p>
-                            </div>
-                        </div>
-                        {user.mfa?.enabled ? (
-                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                <CheckCircle size={12} className="mr-1" /> Enabled
-                             </span>
-                        ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-600">
-                                Disabled
-                            </span>
-                        )}
-                    </div>
-
-                     {user.mfa?.enabled ? (
-                        <div className="flex justify-end">
-                            <button 
-                                onClick={() => setIsDisableMfaDialogOpen(true)}
-                                disabled={isDisablingMFA}
-                                className="text-sm text-red-600 font-medium hover:text-red-700 disabled:opacity-50"
-                            >
-                                Disable 2FA
-                            </button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => setIsMfaModalOpen(true)}
-                            className="w-full py-2.5 bg-white border border-slate-300 shadow-sm text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors"
-                        >
-                            Enable Two-Factor Authentication
-                        </button>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-2 mb-6">
-                    <div className="p-2 rounded-lg bg-indigo-50">
-                        <Lock className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-slate-900">Password</h3>
-                        <p className="text-sm text-slate-500">Update your password to keep your account secure.</p>
-                    </div>
-                </div>
-
-                <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                    <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
+                <form onSubmit={handleProfileUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2 col-span-2 md:col-span-1">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      Full Name
+                    </label>
                     <div className="relative">
-                        <KeyRound className="absolute w-4 h-4 text-slate-400 left-3 top-1/2 -translate-y-1/2" />
-                        <input 
-                        type={showOldPassword ? "text" : "password"} 
-                        name="oldPassword" 
-                        value={passwordData.oldPassword} 
-                        onChange={handlePasswordChange}
-                        className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
-                        placeholder="••••••••"
-                        />
-                        <button
-                        type="button"
-                        onClick={() => setShowOldPassword(!showOldPassword)}
-                        className="absolute text-slate-400 right-3 top-1/2 -translate-y-1/2 hover:text-slate-600"
-                        >
-                        {showOldPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
+                      <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={profileData.fname}
+                        onChange={(e) => setProfileData({ ...profileData, fname: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                        placeholder="Your full name"
+                      />
                     </div>
-                    </div>
+                  </div>
 
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                        <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-                        <div className="relative">
-                            <Lock className="absolute w-4 h-4 text-slate-400 left-3 top-1/2 -translate-y-1/2" />
-                            <input 
-                            type={showNewPassword ? "text" : "password"} 
-                            name="newPassword" 
-                            value={passwordData.newPassword} 
-                            onChange={handlePasswordChange}
-                            onFocus={() => setShowPasswordStrength(true)}
-                            className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
-                            placeholder="Min 8 chars..."
-                            />
-                            <button
-                            type="button"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute text-slate-400 right-3 top-1/2 -translate-y-1/2 hover:text-slate-600"
-                            >
-                            {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                        </div>
-                        {showPasswordStrength && <div className="mt-2"><PasswordStrengthMeter password={passwordData.newPassword} /></div>}
-                        </div>
-                        <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
-                        <div className="relative">
-                            <Lock className="absolute w-4 h-4 text-slate-400 left-3 top-1/2 -translate-y-1/2" />
-                            <input 
-                            type={showConfirmPassword ? "text" : "password"} 
-                            name="confirmNewPassword" 
-                            value={passwordData.confirmNewPassword} 
-                            onChange={handlePasswordChange}
-                            className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
-                            placeholder="Re-enter new password"
-                            />
-                            <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute text-slate-400 right-3 top-1/2 -translate-y-1/2 hover:text-slate-600"
-                            >
-                            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                        </div>
-                        </div>
+                  <div className="space-y-2 col-span-2 md:col-span-1">
+                    <label className="text-sm font-semibold text-slate-700">Email Address</label>
+                    <div className="relative">
+                      <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        value={profileData.email}
+                        readOnly
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed outline-none"
+                      />
                     </div>
+                  </div>
 
-                    <div className="flex justify-end pt-2">
-                    <button 
-                        type="submit" 
-                        disabled={isChangingPassword}
-                        className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white transition-colors bg-slate-900 border border-transparent rounded-lg shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-70 min-w-[140px]"
+                  <div className="space-y-2 col-span-2 md:col-span-1">
+                    <label className="text-sm font-semibold text-slate-700">Phone Number</label>
+                    <div className="relative">
+                      <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="tel"
+                        value={profileData.phone}
+                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                        placeholder="Phone number"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 flex justify-end pt-4 border-t border-slate-100 mt-4">
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-50"
                     >
-                        {isChangingPassword ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                        Update Password
+                      {isLoading ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" /> Saving Changes...
+                        </>
+                      ) : (
+                        'Save Profile Changes'
+                      )}
                     </button>
-                    </div>
+                  </div>
                 </form>
-            </div>
-          </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="security"
+                variants={tabVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ duration: 0.2 }}
+                className="space-y-6"
+              >
+                {/* Password Section */}
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
+                  <div className="flex items-start justify-between relative z-10">
+                    <div className="space-y-2">
+                       <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                          <KeyRound size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">Account Password</h3>
+                      </div>
+                      <p className="text-sm text-slate-500 max-w-md">
+                        Ensure your account is using a long, random password to stay secure.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsChangePasswordDialogOpen(true)}
+                      className="px-5 py-2 text-sm font-bold text-indigo-600 border border-indigo-100 bg-indigo-50/50 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      Update Password
+                    </button>
+                  </div>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-40" />
+                </div>
+
+                {/* MFA Section */}
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2 relative z-10">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${user?.mfa?.enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-600'}`}>
+                          <Shield size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">Two-Factor Authentication (MFA)</h3>
+                      </div>
+                      <p className="text-sm text-slate-500 max-w-md">
+                        Add an extra layer of security to your account by requiring more than just a password to log in.
+                      </p>
+                    </div>
+                    {user?.mfa?.enabled ? (
+                      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">
+                        <CheckCircle2 size={14} /> Active
+                      </div>
+                    ) : (
+                      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
+                        <AlertCircle size={14} /> Not Set Up
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-8 relative z-10">
+                    {user?.mfa?.enabled ? (
+                      <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 border border-slate-200">
+                            <ShieldCheck size={28} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">MFA via Authenticator App</p>
+                            <p className="text-xs text-slate-500">Your account is secured with TOTP codes.</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setIsDisableMfaDialogOpen(true)}
+                          className="w-full sm:w-auto px-5 py-2 text-sm font-bold text-red-600 border border-red-100 bg-red-50/50 rounded-xl hover:bg-red-50 hover:border-red-200 transition-all active:scale-95"
+                        >
+                          Disable MFA
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-indigo-600 border border-slate-200">
+                            <Shield size={28} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-indigo-900">Protection is Off</p>
+                            <p className="text-xs text-indigo-700/70">Enable MFA to secure your dashboard access.</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setIsMfaModalOpen(true)}
+                          className="w-full sm:w-auto px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 group active:scale-95"
+                        >
+                          Enable 2FA <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Aesthetic backgrounds */}
+                  <div className="absolute bottom-0 right-0 w-48 h-48 bg-slate-50 rounded-full -mb-24 -mr-24 opacity-50 blur-2xl" />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
+
+      {/* Modals */}
       <MFASetupModal 
         isOpen={isMfaModalOpen} 
         onClose={() => setIsMfaModalOpen(false)} 
@@ -494,6 +400,12 @@ const ProfilePage = () => {
           });
         }}
         isLoading={isDisablingMFA}
+      />
+      <ChangePasswordDialog
+        isOpen={isChangePasswordDialogOpen}
+        onClose={() => setIsChangePasswordDialogOpen(false)}
+        onConfirm={handlePasswordUpdate}
+        isLoading={isLoading}
       />
     </div>
   );
