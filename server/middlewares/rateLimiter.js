@@ -68,3 +68,10 @@ exports.resetSubmitLimiter = createLimiter(
     'Too many password reset attempts. Please try again after an hour.',
     (req) => req.ip // Rate limit by IP for safety
 );
+
+exports.mfaLimiter = createLimiter(
+    15 * 60 * 1000,
+    5,
+    'Too many 2FA attempts. Please try again after 15 minutes.',
+    (req) => req.user ? req.user._id.toString() : req.ip
+);

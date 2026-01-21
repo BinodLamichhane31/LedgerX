@@ -1,50 +1,32 @@
 const crypto = require('crypto');
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY; // Must be 256 bits (32 characters)
-const IV_LENGTH = 16; // For AES, this is always 16
+const algorithm = 'aes-256-cbc';
+const key = process.env.ENCRYPTION_KEY 
+    ? Buffer.from(process.env.ENCRYPTION_KEY, 'hex') 
+    : crypto.createHash('sha256').update(process.env.JWT_SECRET || 'fallback_secret').digest(); 
 
-if (!ENCRYPTION_KEY) {
-    console.warn("WARNING: ENCRYPTION_KEY not set in environment variables. Encryption will fail.");
-}
+const ivLength = 16;
 
-function encrypt(text) {
-    if (!text) return text;
-    if (!ENCRYPTION_KEY) return text; // Fallback or throw error? For now fallback to avoid crash, but warn.
 
-    try {
-        let iv = crypto.randomBytes(IV_LENGTH);
-        let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
-        let encrypted = cipher.update(text);
-        encrypted = Buffer.concat([encrypted, cipher.final()]);
-        return iv.toString('hex') + ':' + encrypted.toString('hex');
-    } catch (error) {
-        console.error("Encryption Error:", error);
-        return text;
-    }
-}
+const encrypt = (text) => {
+    if (!text) return null;
+    const iv = crypto.randomBytes(ivLength);
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+};
 
-function decrypt(text) {
-    if (!text) return text;
-    if (!ENCRYPTION_KEY) return text;
 
-    try {
-        let textParts = text.split(':');
-        if (textParts.length < 2) return text; // Look like it's not encrypted ?? (Migration strategy)
-        
-        let iv = Buffer.from(textParts.shift(), 'hex');
-        let encryptedText = Buffer.from(textParts.join(':'), 'hex');
-        let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
-        let decrypted = decipher.update(encryptedText);
-        decrypted = Buffer.concat([decrypted, decipher.final()]);
-        return decrypted.toString();
-    } catch (error) {
-        return text; 
-    }
-}
+const decrypt = (text) => {
+    if (!text) return null;
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+};
 
-function hash(text) {
-    if (!text) return text;
-    return crypto.createHash('sha256').update(text).digest('hex');
-}
-
-module.exports = { encrypt, decrypt, hash };
+module.exports = { encrypt, decrypt };

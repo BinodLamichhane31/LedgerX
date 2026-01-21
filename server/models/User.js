@@ -97,7 +97,14 @@ const userSchema = new mongoose.Schema(
       type: Date
     },
     passwordResetToken: String,
-    passwordResetExpires: Date
+    passwordResetExpires: Date,
+    mfa: {
+        enabled: { type: Boolean, default: false },
+        secret: { type: String }, 
+        tempSecret: { type: String },
+        recoveryCodes: [{ type: String }], 
+        lastTotpStep: { type: Number } 
+    }
   },
   {
     timestamps: true,
