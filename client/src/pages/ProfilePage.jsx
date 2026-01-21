@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { Camera, User, Mail, Phone, Save, Loader2, Check, AlertCircle, Crown, Lock, KeyRound, Eye, EyeOff, ShieldCheck, CheckCircle } from 'lucide-react';
 import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
 import MFASetupModal from '../components/auth/MFASetupModal';
+import DisableMFADialog from '../components/auth/DisableMFADialog';
 import { useDisableMFA } from '../hooks/auth/useTwoFactor';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
@@ -54,6 +55,7 @@ const ProfilePage = () => {
   
   // MFA State
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
+  const [isDisableMfaDialogOpen, setIsDisableMfaDialogOpen] = useState(false);
   const { mutate: disableMFA, isLoading: isDisablingMFA } = useDisableMFA();
   
   const handlePasswordChange = (e) => setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -365,15 +367,11 @@ const ProfilePage = () => {
                      {user.mfa?.enabled ? (
                         <div className="flex justify-end">
                             <button 
-                                onClick={() => {
-                                    if(window.confirm("Are you sure you want to disable 2FA? This will reduce your account security.")) {
-                                        disableMFA({});
-                                    }
-                                }}
+                                onClick={() => setIsDisableMfaDialogOpen(true)}
                                 disabled={isDisablingMFA}
-                                className="text-sm text-red-600 font-medium hover:text-red-700"
+                                className="text-sm text-red-600 font-medium hover:text-red-700 disabled:opacity-50"
                             >
-                                {isDisablingMFA ? "Disabling..." : "Disable 2FA"}
+                                Disable 2FA
                             </button>
                         </div>
                     ) : (
@@ -484,6 +482,18 @@ const ProfilePage = () => {
       <MFASetupModal 
         isOpen={isMfaModalOpen} 
         onClose={() => setIsMfaModalOpen(false)} 
+      />
+      <DisableMFADialog
+        isOpen={isDisableMfaDialogOpen}
+        onClose={() => setIsDisableMfaDialogOpen(false)}
+        onConfirm={(data) => {
+          disableMFA(data, {
+            onSuccess: () => {
+              setIsDisableMfaDialogOpen(false);
+            }
+          });
+        }}
+        isLoading={isDisablingMFA}
       />
     </div>
   );
