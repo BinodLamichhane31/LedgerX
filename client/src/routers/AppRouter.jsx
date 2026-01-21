@@ -9,6 +9,7 @@ import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignupPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
+import MfaVerifyPage from "../pages/auth/MfaVerifyPage";
 import UserDashboard from "../pages/user/DashboardPage";
 import CustomerManagementPage from "../pages/user/CustomerManagementPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -78,6 +79,10 @@ function AppRouter() {
           />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          <Route
+            path="/mfa-verify"
+            element={user ? <Navigate to="/" replace /> : <MfaVerifyPage />}
+          />
         </Route>
 
         {/* ---------------- PRIVATE USER ROUTES ---------------- */}

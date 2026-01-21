@@ -4,7 +4,7 @@ const { registerValidation, loginValidation, changePasswordValidation, updatePro
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
 const { authLimiter, passwordResetLimiter, resetSubmitLimiter } = require('../middlewares/rateLimiter')
-const { protect } = require('../middlewares/authMiddleware')
+const { protect, authorize, protectTempToken } = require("../middlewares/authMiddleware");
 const { verifyRecaptcha } = require('../middlewares/recaptchaMiddleware')
 const upload = require('../middlewares/upload')
 const router = express.Router()
@@ -39,7 +39,7 @@ router.post(
 );
 router.post(
     "/mfa",
-    protect, // Expects tempToken
+    protectTempToken, // Validates tempToken from Authorization header
     verifyMFA
 );
 router.get(

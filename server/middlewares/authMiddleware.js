@@ -55,3 +55,47 @@ exports.authorize = (...roles) => {
         next();
     };
 };
+
+// Middleware to protect MFA verification route (validates tempToken from Authorization header)
+exports.protectTempToken = async (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                success: false,
+                message: 'Not authorized, no token provided'
+            });
+        }
+
+        const token = authHeader.split(' ')[1];
+        
+        const decodedPayload = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Verify this is a tempToken (has mfaPending flag)
+        if (!decodedPayload.mfaPending) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token type'
+            });
+        }
+
+        const currentUser = await User.findById(decodedPayload.id).select('-password');
+
+        if (!currentUser) {
+            return res.status(401).json({ success: false, message: 'User not found' });
+        }
+
+        if (!currentUser.isActive) {
+            return res.status(403).json({ success: false, message: 'Account is disabled' });
+        }
+
+        req.user = currentUser;
+        next();
+    } catch (error) {
+        return res.status(401).json({
+            success: false,
+            message: 'Not authorized, invalid token'
+        });
+    }
+};

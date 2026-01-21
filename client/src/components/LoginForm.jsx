@@ -1,5 +1,6 @@
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
+import { useNavigate } from 'react-router-dom';
 import { useLoginUser } from '../hooks/auth/useLoginUser';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useState, useRef } from 'react';
@@ -7,6 +8,7 @@ import ReCAPTCHA from 'react-google-recaptcha';
 
 export default function LoginForm() {
   const { mutate, isLoading } = useLoginUser();
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [recaptchaToken, setRecaptchaToken] = useState(null);
   const recaptchaRef = useRef(null);
@@ -28,6 +30,18 @@ export default function LoginForm() {
     }
     
     mutate({ ...values, recaptchaToken }, {
+      onSuccess: (response) => {
+        // Check if MFA is required
+        if (response.mfaRequired) {
+          navigate('/mfa-verify', { 
+            state: { 
+              tempToken: response.tempToken, 
+              email: values.email 
+            } 
+          });
+        }
+        // Otherwise useLoginUser handles the navigation
+      },
       onSettled: () => {
         if (recaptchaRef.current) {
           recaptchaRef.current.reset();

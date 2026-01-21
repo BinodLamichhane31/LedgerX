@@ -13,6 +13,13 @@ export const useLoginUser = () => {
     mutationFn: loginUserService,
     mutationKey: ['login'],
     onSuccess: (response) => {
+      // Check if MFA is required
+      if (response.mfaRequired) {
+        // Don't call login() or navigate to dashboard
+        // The LoginForm component will handle navigation to MFA verify page
+        return;
+      }
+
       const { user, shops } = response.data;
 
       login(response);
