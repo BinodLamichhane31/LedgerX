@@ -84,4 +84,28 @@ router.get(
     getUserGrowthStats
 )
 
+const { getRevenueStats } = require('../../controllers/admin/revenueController');
+const { getAllSubscriptions, updateUserSubscription } = require('../../controllers/admin/subscriptionManagement');
+
+router.get(
+    '/revenue',
+    protect,
+    authorize('admin'),
+    getRevenueStats
+);
+
+router.get(
+    '/subscriptions',
+    protect,
+    authorize('admin'),
+    getAllSubscriptions
+);
+
+router.put(
+    '/subscriptions/:id',
+    protect,
+    authorize('admin'),
+    updateUserSubscription
+);
+
 module.exports = router
