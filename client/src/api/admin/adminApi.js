@@ -20,6 +20,6 @@ export const getAllSubscriptions = async () => {
     return axios.get('/admin/subscriptions');
 };
 
-export const updateUserSubscription = async (userId, data) => {
-    return axios.put(`/admin/subscriptions/${userId}`, data);
+export const getUserPaymentHistoryApi = (id) => {
+    return axios.get(`/admin/users/${id}/payments`);
 };

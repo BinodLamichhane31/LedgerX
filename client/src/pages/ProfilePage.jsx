@@ -15,7 +15,8 @@ import {
   ChevronRight,
   ShieldCheck,
   ShieldAlert,
-  AlertCircle
+  AlertCircle,
+  History
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -23,26 +24,28 @@ import { AuthContext } from '../auth/authProvider';
 import { 
   updateProfileService, 
   changePasswordService, 
-  uploadProfileImageService,
-  getProfileService
+  uploadProfileImageService
 } from '../services/authService';
 import { useGetProfile } from '../hooks/auth/useProfile';
 import { useDisableMFA } from '../hooks/auth/useTwoFactor';
+import { useGetPaymentHistory } from '../hooks/usePayment';
 
 import MFASetupModal from '../components/auth/MFASetupModal';
 import DisableMFADialog from '../components/auth/DisableMFADialog';
 import ChangePasswordDialog from '../components/auth/ChangePasswordDialog';
+import SubscriptionHistory from '../components/user/SubscriptionHistory';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
 
 const ProfilePage = () => {
   const { user, setUser } = useContext(AuthContext);
-  const { data: dbProfile, refetch: refetchProfile } = useGetProfile();
+  const { data: dbProfile } = useGetProfile();
+  const { data: paymentsResponse, isLoading: isPaymentsLoading } = useGetPaymentHistory();
   
-  // Use DB data if available, fallback to context
   const currentUser = dbProfile?.data || user;
+  const payments = paymentsResponse?.data || [];
 
-  const [activeTab, setActiveTab] = useState('account'); // 'account' or 'security'
+  const [activeTab, setActiveTab] = useState('account'); // 'account', 'security', or 'history'
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -67,7 +70,6 @@ const ProfilePage = () => {
         phone: currentUser.phone || ''
       });
       
-      // Keep context in sync if db data is fresher
       if (dbProfile?.data && JSON.stringify(dbProfile.data) !== JSON.stringify(user)) {
         setUser(dbProfile.data);
       }
@@ -76,7 +78,6 @@ const ProfilePage = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    // Handle both forward and backward slashes for cross-platform robustness
     const filename = imagePath.split(/[/\\]/).pop();
     return `${API_URL}/uploads/${filename}`;
   };
@@ -91,7 +92,7 @@ const ProfilePage = () => {
       setUser(updatedUser.data);
       toast.success('Profile updated successfully');
     } catch (error) {
-      const errorMessage = error.response?.status === 400 ? error.message : "Something went wrong while updating your profile. Please try again.";
+      const errorMessage = error.response?.status === 400 ? error.message : "Something went wrong while updating your profile.";
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -105,7 +106,7 @@ const ProfilePage = () => {
       toast.success('Password changed successfully');
       setIsChangePasswordDialogOpen(false);
     } catch (error) {
-      const errorMessage = error.response?.status === 401 ? "The current password you entered is incorrect." : "An error occurred while changing your password. Please try again.";
+      const errorMessage = error.response?.status === 401 ? "Incorrect current password." : "An error occurred.";
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -125,8 +126,7 @@ const ProfilePage = () => {
       setUser(response.data);
       toast.success('Profile image updated');
     } catch (error) {
-      const errorMessage = error.response?.status === 413 ? "The image file is too large. Please choose a smaller one." : "Could not upload the image. Please try a different file.";
-      toast.error(errorMessage);
+      toast.error("Could not upload image.");
     } finally {
       setIsUploading(false);
     }
@@ -142,25 +142,17 @@ const ProfilePage = () => {
     <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* Header / Profile Info Card */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm overflow-hidden relative">
+        {/* Header Section */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-3xl opacity-50" />
           
           <div className="flex flex-col sm:flex-row items-center gap-6 relative">
             <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl overflow-hidden ring-4 ring-indigo-50 border border-slate-100 flex items-center justify-center bg-slate-100">
+              <div className="w-24 h-24 rounded-2xl overflow-hidden ring-4 ring-indigo-50 border border-slate-100 flex items-center justify-center bg-slate-100 uppercase font-black text-2xl text-slate-400">
                 {imageUrl ? (
-                  <img 
-                    src={imageUrl} 
-                    alt="Profile" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = ''; // Fallback to icon on error
-                    }}
-                  />
+                  <img src={imageUrl} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-12 h-12 text-slate-400" />
+                  currentUser?.fname?.charAt(0) || 'U'
                 )}
                 {isUploading && (
                   <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
@@ -168,8 +160,8 @@ const ProfilePage = () => {
                   </div>
                 )}
               </div>
-              <label className="absolute bottom-0 right-0 p-1 bg-indigo-600 rounded-xl text-white shadow-xl cursor-pointer hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95 translate-x-1/4 translate-y-1/4 ring-4 ring-white">
-                <Camera size={18} />
+              <label className="absolute bottom-0 right-0 p-1.5 bg-indigo-600 rounded-xl text-white shadow-xl cursor-pointer hover:bg-indigo-700 transition-all ring-4 ring-white">
+                <Camera size={16} />
                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
               </label>
             </div>
@@ -184,256 +176,120 @@ const ProfilePage = () => {
                 <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100 uppercase tracking-wider">
                   {currentUser?.role}
                 </span>
-                {currentUser?.mfa?.enabled ? (
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-100 flex items-center gap-1">
-                    <ShieldCheck size={12} /> 2FA Active
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-full border border-slate-200 flex items-center gap-1">
-                    <ShieldAlert size={12} /> 2FA Disabled
-                  </span>
-                )}
+                <span className={`px-3 py-1 text-xs font-bold rounded-full border uppercase tracking-wider ${
+                    currentUser?.subscription?.plan === 'PRO' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                    currentUser?.subscription?.plan === 'BASIC' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                    'bg-slate-50 text-slate-700 border-slate-100'
+                }`}>
+                    Plan: {currentUser?.subscription?.plan || 'FREE'}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs Navigation */}
+        {/* Tabs */}
         <div className="flex p-1.5 bg-white border border-slate-200 rounded-2xl shadow-sm">
           <button
             onClick={() => setActiveTab('account')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-all ${
-              activeTab === 'account' 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                : 'text-slate-600 hover:bg-slate-50'
+              activeTab === 'account' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
             <User size={18} />
-            Account Settings
+            Profile
           </button>
           <button
             onClick={() => setActiveTab('security')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-all ${
-              activeTab === 'security' 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                : 'text-slate-600 hover:bg-slate-50'
+              activeTab === 'security' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
             <Lock size={18} />
-            Security & MFA
+            Security
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-all ${
+              activeTab === 'history' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <History size={18} />
+            Payments
           </button>
         </div>
 
         {/* Tab Content */}
-        <div className="relative">
-          <AnimatePresence mode="wait">
-            {activeTab === 'account' ? (
-              <motion.div
-                key="account"
-                variants={tabVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                transition={{ duration: 0.2 }}
-                className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm"
-              >
-                <div className="mb-6">
-                  <h3 className="text-lg font-bold text-slate-900">Personal Information</h3>
-                  <p className="text-sm text-slate-500">Update your basic profile information.</p>
+        <AnimatePresence mode="wait">
+          {activeTab === 'account' && (
+            <motion.div key="account" variants={tabVariants} initial="hidden" animate="visible" exit="exit" className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+              <h3 className="text-lg font-bold mb-4">Personal Details</h3>
+              <form onSubmit={handleProfileUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-slate-700 uppercase tracking-tighter text-xs">Full Name</label>
+                  <input type="text" value={profileData.fname} onChange={(e) => setProfileData({...profileData, fname: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-slate-700 uppercase tracking-tighter text-xs">Email</label>
+                  <input type="email" value={profileData.email} readOnly className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-slate-700 uppercase tracking-tighter text-xs">Phone</label>
+                  <input type="tel" value={profileData.phone} onChange={(e) => setProfileData({...profileData, phone: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div className="col-span-2 flex justify-end">
+                   <button type="submit" disabled={isLoading} className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">
+                     {isLoading ? 'Saving...' : 'Save Changes'}
+                   </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {activeTab === 'security' && (
+             <motion.div key="security" variants={tabVariants} initial="hidden" animate="visible" exit="exit" className="space-y-6">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                   <div className="flex items-center gap-4">
+                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"><KeyRound size={24} /></div>
+                      <div>
+                        <h3 className="font-bold">Password Management</h3>
+                        <p className="text-sm text-slate-500">Last updated recently</p>
+                      </div>
+                   </div>
+                   <button onClick={() => setIsChangePasswordDialogOpen(true)} className="px-5 py-2 text-sm font-bold text-indigo-600 border border-indigo-100 bg-indigo-50 rounded-xl">Update Password</button>
                 </div>
 
-                <form onSubmit={handleProfileUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        value={profileData.fname}
-                        onChange={(e) => setProfileData({ ...profileData, fname: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
-                        placeholder="Your full name"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-sm font-semibold text-slate-700">Email Address</label>
-                    <div className="relative">
-                      <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="email"
-                        value={profileData.email}
-                        readOnly
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-sm font-semibold text-slate-700">Phone Number</label>
-                    <div className="relative">
-                      <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="tel"
-                        value={profileData.phone}
-                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
-                        placeholder="Phone number"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="col-span-2 flex justify-end pt-4 border-t border-slate-100 mt-4">
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-50"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 size={18} className="animate-spin" /> Saving Changes...
-                        </>
-                      ) : (
-                        'Save Profile Changes'
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="security"
-                variants={tabVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                transition={{ duration: 0.2 }}
-                className="space-y-6"
-              >
-                {/* Password Section */}
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
-                  <div className="flex items-start justify-between relative z-10">
-                    <div className="space-y-2">
-                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                          <KeyRound size={24} />
-                        </div>
-                        <h3 className="text-lg font-bold text-slate-900">Account Password</h3>
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+                   <div className="flex items-center gap-4">
+                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><ShieldCheck size={24} /></div>
+                      <div>
+                        <h3 className="font-bold">Two-Factor Authentication</h3>
+                        <p className="text-sm text-slate-500">{currentUser?.mfa?.enabled ? 'Active and protecting your account' : 'Enable for extra security'}</p>
                       </div>
-                      <p className="text-sm text-slate-500 max-w-md">
-                        Ensure your account is using a long, random password to stay secure.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setIsChangePasswordDialogOpen(true)}
-                      className="px-5 py-2 text-sm font-bold text-indigo-600 border border-indigo-100 bg-indigo-50/50 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 transition-all active:scale-95 whitespace-nowrap"
-                    >
-                      Update Password
-                    </button>
-                  </div>
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-40" />
+                   </div>
+                   {currentUser?.mfa?.enabled ? (
+                     <button onClick={() => setIsDisableMfaDialogOpen(true)} className="w-full py-3 text-red-600 font-bold bg-red-50 rounded-2xl border border-red-100">Disable 2FA</button>
+                   ) : (
+                     <button onClick={() => setIsMfaModalOpen(true)} className="w-full py-3 text-white font-bold bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-center gap-2">Setup 2FA <ChevronRight size={18} /></button>
+                   )}
                 </div>
+             </motion.div>
+          )}
 
-                {/* MFA Section */}
-                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2 relative z-10">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${user?.mfa?.enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-600'}`}>
-                          <Shield size={24} />
-                        </div>
-                        <h3 className="text-lg font-bold text-slate-900">Two-Factor Authentication (MFA)</h3>
-                      </div>
-                      <p className="text-sm text-slate-500 max-w-md">
-                        Add an extra layer of security to your account by requiring more than just a password to log in.
-                      </p>
-                    </div>
-                    {user?.mfa?.enabled ? (
-                      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">
-                        <CheckCircle2 size={14} /> Active
-                      </div>
-                    ) : (
-                      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
-                        <AlertCircle size={14} /> Not Set Up
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-8 relative z-10">
-                    {user?.mfa?.enabled ? (
-                      <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 border border-slate-200">
-                            <ShieldCheck size={28} />
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900">MFA via Authenticator App</p>
-                            <p className="text-xs text-slate-500">Your account is secured with TOTP codes.</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setIsDisableMfaDialogOpen(true)}
-                          className="w-full sm:w-auto px-5 py-2 text-sm font-bold text-red-600 border border-red-100 bg-red-50/50 rounded-xl hover:bg-red-50 hover:border-red-200 transition-all active:scale-95"
-                        >
-                          Disable MFA
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-indigo-600 border border-slate-200">
-                            <Shield size={28} />
-                          </div>
-                          <div>
-                            <p className="font-bold text-indigo-900">Protection is Off</p>
-                            <p className="text-xs text-indigo-700/70">Enable MFA to secure your dashboard access.</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setIsMfaModalOpen(true)}
-                          className="w-full sm:w-auto px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 group active:scale-95"
-                        >
-                          Enable 2FA <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Aesthetic backgrounds */}
-                  <div className="absolute bottom-0 right-0 w-48 h-48 bg-slate-50 rounded-full -mb-24 -mr-24 opacity-50 blur-2xl" />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+          {activeTab === 'history' && (
+            <motion.div key="history" variants={tabVariants} initial="hidden" animate="visible" exit="exit" className="space-y-4">
+               <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+                  <h3 className="text-lg font-bold mb-4">Transaction History</h3>
+                  <SubscriptionHistory payments={payments} isLoading={isPaymentsLoading} />
+               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Modals */}
-      <MFASetupModal 
-        isOpen={isMfaModalOpen} 
-        onClose={() => setIsMfaModalOpen(false)} 
-      />
-      <DisableMFADialog
-        isOpen={isDisableMfaDialogOpen}
-        onClose={() => setIsDisableMfaDialogOpen(false)}
-        onConfirm={(data) => {
-          disableMFA(data, {
-            onSuccess: () => {
-              setIsDisableMfaDialogOpen(false);
-            }
-          });
-        }}
-        isLoading={isDisablingMFA}
-      />
-      <ChangePasswordDialog
-        isOpen={isChangePasswordDialogOpen}
-        onClose={() => setIsChangePasswordDialogOpen(false)}
-        onConfirm={handlePasswordUpdate}
-        isLoading={isLoading}
-      />
+      <MFASetupModal isOpen={isMfaModalOpen} onClose={() => setIsMfaModalOpen(false)} />
+      <DisableMFADialog isOpen={isDisableMfaDialogOpen} onClose={() => setIsDisableMfaDialogOpen(false)} onConfirm={disableMFA} isLoading={isDisablingMFA} />
+      <ChangePasswordDialog isOpen={isChangePasswordDialogOpen} onClose={() => setIsChangePasswordDialogOpen(false)} onConfirm={handlePasswordUpdate} isLoading={isLoading} />
     </div>
   );
 };

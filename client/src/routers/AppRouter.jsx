@@ -37,7 +37,7 @@ import PaymentStatusPage from "../pages/user/PaymentStatusPage";
 import ShopManagementPage from "../pages/user/ShopManagementPage";
 import ProfilePage from "../pages/ProfilePage";
 import RevenuePage from "../pages/admin/RevenuePage";
-import SubscriptionManagementPage from "../pages/admin/SubscriptionManagementPage";
+import UserDetailPage from "../pages/admin/UserDetailPage";
 
 function AppRouter() {
   const { user, loading, isLoggingOut } = useContext(AuthContext);
@@ -121,9 +121,9 @@ function AppRouter() {
           <Route element={<DashboardLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboard/>} />
             <Route path="/admin/users" element={<UserManagement />} />
+            <Route path="/admin/users/:id" element={<UserDetailPage />} />
             <Route path="/admin/activity-logs" element={<ActivityLogs />} />
             <Route path="/admin/revenue" element={<RevenuePage />} />
-            <Route path="/admin/subscriptions" element={<SubscriptionManagementPage />} />
           </Route>
         </Route>
 

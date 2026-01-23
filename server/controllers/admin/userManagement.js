@@ -69,6 +69,10 @@ exports.getAllUsers = async (req, res) => {
              if (status === 'inactive') searchQuery.isActive = false;
         }
 
+        if (req.query.plan) {
+            searchQuery['subscription.plan'] = req.query.plan.toUpperCase();
+        }
+
         const totalUsers = await User.countDocuments(searchQuery);
         const users = await User.find(searchQuery)
             .sort(sortBy)

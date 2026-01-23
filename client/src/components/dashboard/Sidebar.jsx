@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Package, Truck, ShieldCheck, UserCog, LogOut,
   ReceiptText, ShoppingBag, History, Crown,
-  Store
+  Store, TrendingUp
 } from 'lucide-react';
 import { AuthContext } from '../../auth/authProvider';
 import ShopSwitcher from './ShopSwitcher'; 
@@ -126,6 +126,7 @@ const Sidebar = () => {
 
   const adminLinks = [
     { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/admin/revenue", label: "Revenue", icon: TrendingUp },
     { to: "/admin/users", label: "User Management", icon: UserCog },
     { to: "/admin/activity-logs", label: "Activity Logs", icon: ShieldCheck },
   ];

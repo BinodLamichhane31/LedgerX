@@ -82,3 +82,12 @@ export const bulkToggleUserStatusService = async (userIds, status) => {
         throw error.response?.data?.message || { message: "Failed to update users status." };
     }
 }
+
+export const getUserPaymentHistoryService = async (id) => {
+    try {
+        const response = await getUserPaymentHistoryApi(id);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data?.message || { message: "Failed to fetch user payment history." };
+    }
+};

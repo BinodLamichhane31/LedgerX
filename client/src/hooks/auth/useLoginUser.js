@@ -27,7 +27,7 @@ export const useLoginUser = () => {
       toast.success(response.message || "Login Successful");
 
       if (user.role === 'admin') {
-        navigate("/admin/users", { replace: true });
+        navigate("/admin/dashboard", { replace: true });
       } else if (shops && shops.length > 0) {
         navigate("/dashboard", { replace: true });
       } else {

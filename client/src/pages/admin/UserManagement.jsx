@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { PlusCircle, Search, Users, Download, Trash2, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { PlusCircle, Search, Users, Download, Trash2, ShieldCheck, ShieldAlert, Eye } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 
 import { useGetAllUsers, useDeleteUserByAdmin, useBulkDeleteUsers, useBulkToggleUserStatus } from '../../hooks/admin/useManageUser';
@@ -24,7 +25,8 @@ const UserManagement = () => {
     sortField, setSortField,
     sortOrder, setSortOrder,
     role, setRole,
-    status, setStatus
+    status, setStatus,
+    plan, setPlan
   } = useGetAllUsers();
 
   const [debouncedSearch] = useDebounce(search, 500); // Debounce search input
@@ -190,6 +192,16 @@ const UserManagement = () => {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                 </select>
+                <select
+                    value={plan}
+                    onChange={(e) => setPlan(e.target.value)}
+                    className="py-2.5 px-4 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value="">All Plans</option>
+                    <option value="FREE">Free</option>
+                    <option value="BASIC">Basic</option>
+                    <option value="PRO">Pro</option>
+                </select>
             </div>
           )}
           
@@ -198,6 +210,7 @@ const UserManagement = () => {
             isLoading={isLoading}
             isError={isError}
             onEdit={handleOpenEditModal}
+            onViewDetails={(u) => navigate(`/admin/users/${u._id}`)}
             onDelete={(user) => setDeletingUser(user)}
             onSort={handleSort}
             sortField={sortField}

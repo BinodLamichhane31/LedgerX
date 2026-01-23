@@ -1,4 +1,4 @@
-import { initiateSubscriptionApi, verifySubscriptionApi } from '../api/paymentApi';
+import { initiateSubscriptionApi, verifySubscriptionApi, getPaymentHistoryApi } from '../api/paymentApi';
 
 export const initiateSubscriptionService = async (plan) => {
     try {
@@ -15,5 +15,14 @@ export const verifySubscriptionService = async (verificationData) => {
         return response.data;
     } catch (error) {
         throw error.response?.data || { message: 'Payment verification failed.' };
+    }
+};
+
+export const getPaymentHistoryService = async () => {
+    try {
+        const response = await getPaymentHistoryApi();
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to fetch payment history.' };
     }
 };

@@ -1,4 +1,4 @@
-import { Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Edit, Trash2, ChevronUp, ChevronDown, Eye } from 'lucide-react';
 import { useToggleUserStatus } from '../../hooks/admin/useManageUser';
 
 const SortableHeader = ({ children, field, onSort, sortField, sortOrder }) => {
@@ -28,6 +28,7 @@ const UserTable = ({
   sortOrder,
   selectedIds = [], // Array of selected user IDs
   onSelectionChange, // Function to handle selection updates: (newSelectedIds) => void
+  onViewDetails,
   currentUser
 }) => {
   const { mutate: toggleStatus, isLoading: isToggling } = useToggleUserStatus();
@@ -80,6 +81,7 @@ const UserTable = ({
             <SortableHeader field="fname" {...{ onSort, sortField, sortOrder }}>Name</SortableHeader>
             <SortableHeader field="email" {...{ onSort, sortField, sortOrder }}>Email</SortableHeader>
             <SortableHeader field="role" {...{ onSort, sortField, sortOrder }}>Role</SortableHeader>
+            <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Plan</th>
             <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Status</th>
             <th className="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">Actions</th>
           </tr>
@@ -101,7 +103,16 @@ const UserTable = ({
               </td>
               <td className="px-6 py-4 whitespace-nowrap">{`${user.fname} ${user.lname}`} {isSelf && <span className="text-xs text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full ml-2">You</span>}</td>
               <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{user.role}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 capitalize">{user.role}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${
+                  user.subscription?.plan === 'PRO' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                  user.subscription?.plan === 'BASIC' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                  'bg-slate-50 text-slate-700 border-slate-100'
+                }`}>
+                  {user.subscription?.plan || 'FREE'}
+                </span>
+              </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -115,7 +126,10 @@ const UserTable = ({
                 </label>
               </td>
               <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
-                <button onClick={() => onEdit(user)} className="p-2 text-indigo-600 hover:text-indigo-900">
+                <button onClick={() => onViewDetails(user)} className="p-2 text-slate-600 hover:text-indigo-600 transition-colors" title="View Details">
+                  <Eye size={18} />
+                </button>
+                <button onClick={() => onEdit(user)} className="p-2 text-indigo-600 hover:text-indigo-900 transition-colors" title="Edit User">
                   <Edit size={18} />
                 </button>
                 <button 

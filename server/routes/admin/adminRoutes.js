@@ -85,7 +85,8 @@ router.get(
 )
 
 const { getRevenueStats } = require('../../controllers/admin/revenueController');
-const { getAllSubscriptions, updateUserSubscription } = require('../../controllers/admin/subscriptionManagement');
+const { getAllSubscriptions } = require('../../controllers/admin/subscriptionManagement');
+const { getUserPaymentHistoryByAdmin } = require('../../controllers/paymentController');
 
 router.get(
     '/revenue',
@@ -101,11 +102,11 @@ router.get(
     getAllSubscriptions
 );
 
-router.put(
-    '/subscriptions/:id',
+router.get(
+    '/users/:id/payments',
     protect,
     authorize('admin'),
-    updateUserSubscription
+    getUserPaymentHistoryByAdmin
 );
 
 module.exports = router

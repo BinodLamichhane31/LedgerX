@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useRef, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { useVerifySubscription } from '../../hooks/usePayment';
+import { useVerifyPayment } from '../../hooks/usePayment';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useGetProfile } from '../../hooks/auth/useProfile';
 import { AuthContext } from '../../auth/authProvider';
@@ -15,7 +15,7 @@ const PaymentStatusPage = () => {
     // This state will control our UI and will persist across re-renders.
     const [pageStatus, setPageStatus] = useState('pending'); // 'pending', 'success', 'error'
 
-    const { mutate: verifyPayment } = useVerifySubscription();
+    const { mutate: verifyPayment } = useVerifyPayment();
 
     useEffect(() => {
         // Prevent this effect from running more than once.

@@ -1,35 +1,33 @@
-// hooks/usePayment.js - Fixed version
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
-import { initiateSubscriptionService, verifySubscriptionService } from '../services/paymentService';
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { initiateSubscriptionService, verifySubscriptionService, getPaymentHistoryService } from "../services/paymentService";
+import { toast } from "react-toastify";
 
-export const useInitiateSubscription = () => {
+export const usePayment = () => {
     return useMutation({
-        mutationFn: (plan) => initiateSubscriptionService(plan),
+        mutationFn: initiateSubscriptionService,
         onSuccess: (data) => {
             if (data.payment_url) {
-                toast.info("Redirecting to Khalti for payment...");
                 window.location.href = data.payment_url;
-            } else {
-                 toast.error("Failed to get payment URL.");
             }
         },
         onError: (error) => {
-            toast.error(error.message || "Could not start the payment process.");
-        },
+            toast.error(error.message || "Something went wrong with the payment initiation.");
+        }
     });
 };
 
-export const useVerifySubscription = () => {
-    const queryClient = useQueryClient();
+export const useVerifyPayment = () => {
     return useMutation({
-        mutationFn: (verificationData) => verifySubscriptionService(verificationData),
+        mutationFn: verifySubscriptionService,
         onSuccess: (data) => {
-            toast.success(data.message || "Your subscription has been upgraded!");
-            queryClient.invalidateQueries({ queryKey: ['profile'] });
-        },
-        onError: (error) => {
-            toast.error(error.message || "We couldn't verify your payment.");
-        },
+            toast.success(data.message || "Payment verified successfully!");
+        }
+    });
+};
+
+export const useGetPaymentHistory = () => {
+    return useQuery({
+        queryKey: ['payment_history'],
+        queryFn: getPaymentHistoryService
     });
 };

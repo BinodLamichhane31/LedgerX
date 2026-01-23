@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { AuthContext } from '../../auth/authProvider';
-import { useInitiateSubscription } from '../../hooks/usePayment';
+import { usePayment as useInitiateSubscription } from '../../hooks/usePayment';
 import { Crown, CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { useGetProfile } from '../../hooks/auth/useProfile';
 
@@ -42,7 +42,7 @@ const SubscriptionPage = () => {
                             <h2 className="text-xl font-semibold text-slate-800">Free</h2>
                             {currentPlan === 'FREE' && <span className="text-xs font-semibold text-primary-600 bg-primary-100 px-2 py-1 rounded-full">CURRENT</span>}
                         </div>
-                        <p className="mt-4 text-4xl font-bold font-heading">₹0 <span className="text-lg font-normal text-slate-500">/ forever</span></p>
+                        <p className="mt-4 text-4xl font-bold font-heading">Rs. 0 <span className="text-lg font-normal text-slate-500">/ forever</span></p>
                         <ul className="mt-6 space-y-3 text-sm">
                             <FeatureItem included={true} text="1 Shop" />
                             <FeatureItem included={true} text="10 Customers" />
@@ -58,7 +58,7 @@ const SubscriptionPage = () => {
                             <h2 className="text-xl font-semibold text-primary-600">Basic</h2>
                             {isBasic && <span className="text-xs font-semibold text-primary-600 bg-primary-100 px-2 py-1 rounded-full">CURRENT</span>}
                         </div>
-                        <p className="mt-4 text-4xl font-bold font-heading">₹500 <span className="text-lg font-normal text-slate-500">/ year</span></p>
+                        <p className="mt-4 text-4xl font-bold font-heading">Rs. 500 <span className="text-lg font-normal text-slate-500">/ year</span></p>
                         <ul className="mt-6 space-y-3 text-sm">
                             <FeatureItem included={true} text="3 Shops" />
                             <FeatureItem included={true} text="50 Customers" />
@@ -81,7 +81,7 @@ const SubscriptionPage = () => {
                              <h2 className="text-xl font-semibold text-purple-600">Pro</h2>
                              {isPro && <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full text-purple-700 bg-purple-100"><Crown size={12}/> CURRENT</span>}
                         </div>
-                        <p className="mt-4 text-4xl font-bold font-heading">₹1000 <span className="text-lg font-normal text-slate-500">/ year</span></p>
+                        <p className="mt-4 text-4xl font-bold font-heading">Rs. 1000 <span className="text-lg font-normal text-slate-500">/ year</span></p>
                         <ul className="mt-6 space-y-3 text-sm">
                             <FeatureItem included={true} text="Unlimited Shops" />
                             <FeatureItem included={true} text="Unlimited Customers" />

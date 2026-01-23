@@ -7,3 +7,7 @@ export const initiateSubscriptionApi = async (plan) => {
 export const verifySubscriptionApi = async (verificationData) => {
     return axios.post('/payments/verify-subscription',  verificationData );
 };
+
+export const getPaymentHistoryApi = async () => {
+    return axios.get('/payments/history');
+};

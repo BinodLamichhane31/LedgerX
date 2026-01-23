@@ -13,10 +13,11 @@ export const useGetAllUsers = () =>{
 
     const [role, setRole] = useState("");
     const [status, setStatus] = useState("");
+    const [plan, setPlan] = useState("");
 
     const query = useQuery(
         {
-            queryKey: ['admin_get_users',pageNumber,pageSize,search,sortField,sortOrder, role, status],
+            queryKey: ['admin_get_users',pageNumber,pageSize,search,sortField,sortOrder, role, status, plan],
             queryFn: () => getAllUsersService({
                 page:pageNumber,
                 size:pageSize,
@@ -24,7 +25,8 @@ export const useGetAllUsers = () =>{
                 sortField,
                 sortOrder,
                 role,
-                status
+                status,
+                plan
             }),
             keepPreviousData: true
         }
@@ -44,7 +46,9 @@ export const useGetAllUsers = () =>{
         role,
         setRole,
         status,
-        setStatus
+        setStatus,
+        plan,
+        setPlan
     }
 }
 
@@ -164,5 +168,13 @@ export const useBulkToggleUserStatus = () => {
         onError: (error) => {
             toast.error(error.message || "Failed to update users status.");
         }
+    });
+};
+
+export const useGetUserPaymentHistory = (id) => {
+    return useQuery({
+        queryKey: ['admin_user_payment_history', id],
+        queryFn: () => getUserPaymentHistoryService(id),
+        enabled: !!id
     });
 };
