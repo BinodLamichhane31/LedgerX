@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createUserService, deleteUserByAdminService, getAllUsersService, getUserByIdService, toggleUserStatusService, updateUserByAdminService, getUserGrowthStatsService, bulkDeleteUsersService, bulkToggleUserStatusService } from "../../services/admin/userManagementService"
+import { createUserService, deleteUserByAdminService, getAllUsersService, getUserByIdService, toggleUserStatusService, updateUserByAdminService, getUserGrowthStatsService, bulkDeleteUsersService, bulkToggleUserStatusService, getUserPaymentHistoryService } from "../../services/admin/userManagementService"
 import { useState } from "react"
 import { toast } from "react-toastify";
 

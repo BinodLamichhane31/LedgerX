@@ -1,5 +1,5 @@
 import axios from "axios"
-import { createUserApi, deleteUserByAdminApi, getAllUsersApi, getUserByIdApi, toggleUserStatusApi, updateUserByAdminApi, getUserGrowthStatsApi, bulkDeleteUsersApi, bulkToggleUserStatusApi } from "../../api/admin/adminApi"
+import { createUserApi, deleteUserByAdminApi, getAllUsersApi, getUserByIdApi, toggleUserStatusApi, updateUserByAdminApi, getUserGrowthStatsApi, bulkDeleteUsersApi, bulkToggleUserStatusApi, getUserPaymentHistoryApi } from "../../api/admin/adminApi"
 
 export const getAllUsersService = async (params) => {
     try {

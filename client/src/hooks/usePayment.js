@@ -20,7 +20,7 @@ export const useVerifyPayment = () => {
     return useMutation({
         mutationFn: verifySubscriptionService,
         onSuccess: (data) => {
-            toast.success(data.message || "Payment verified successfully!");
+           // toast.success(data.message || "Payment verified successfully!");
         }
     });
 };

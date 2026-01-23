@@ -2,6 +2,7 @@ const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const { logActivity } = require('../services/activityLogger');
 
 exports.initiateSubscriptionPayment = async (req, res) => {
     try {
@@ -79,7 +80,7 @@ exports.initiateSubscriptionPayment = async (req, res) => {
             }
         };
 
-        console.log('Initiating Khalti payment for user:', user.email, 'Plan:', plan);
+
         
         const khaltiResponse = await axios.post(
             process.env.KHALTI_INITIATE_URL || 'https://a.khalti.com/api/v2/epayment/initiate/',
@@ -97,7 +98,19 @@ exports.initiateSubscriptionPayment = async (req, res) => {
             payment.khaltiPidx = khaltiResponse.data.pidx;
             await payment.save();
             
-            console.log('Payment initiated successfully. PIDX:', khaltiResponse.data.pidx);
+
+
+            await logActivity({
+                req,
+                userId: user._id,
+                action: 'PAYMENT_INITIATE',
+                module: 'Payment',
+                metadata: {
+                    pidx: khaltiResponse.data.pidx,
+                    plan,
+                    amount: amountNpr
+                }
+            });
 
             res.status(200).json({
                 success: true,
@@ -112,6 +125,18 @@ exports.initiateSubscriptionPayment = async (req, res) => {
 
     } catch (error) {
         console.error('Payment initiation error:', error.response?.data || error.message);
+        
+        await logActivity({
+            req,
+            userId: req.user._id,
+            action: 'PAYMENT_INITIATE_FAIL',
+            module: 'Payment',
+            metadata: {
+                error: error.message,
+                plan: req.body.plan
+            },
+            level: 'error'
+        });
         
         // Provide user-friendly error messages
         let errorMessage = 'Failed to initiate payment. Please try again.';
@@ -161,23 +186,19 @@ exports.verifySubscriptionPayment = async (req, res) => {
             });
         }
         
-        // Prevent duplicate verification
-        if (paymentRecord.status === 'COMPLETE') {
-            return res.status(400).json({
-                success: false,
-                message: 'This payment has already been verified.'
-            });
-        }
+        // Prevent duplicate verification check moved to atomic update logic for idempotency
+
         
         // Verify the payment belongs to the requesting user
         if (paymentRecord.user.toString() !== req.user._id.toString()) {
+            console.error(`[Payment Mismatch] Record User: ${paymentRecord.user}, Req User: ${req.user._id}`);
             return res.status(403).json({
                 success: false,
                 message: 'Unauthorized access to payment record.'
             });
         }
-
-        console.log('Verifying payment for user:', req.user.email, 'PIDX:', pidx);
+        
+        console.log(`[Payment Verify] User: ${req.user._id}, PIDX: ${pidx}`);
         
         const khaltiResponse = await axios.post(
             process.env.KHALTI_LOOKUP_URL || 'https://a.khalti.com/api/v2/epayment/lookup/',
@@ -196,7 +217,19 @@ exports.verifySubscriptionPayment = async (req, res) => {
         // Verify amount matches
         const expectedAmount = paymentRecord.amount * 100; // Convert to paisa
         if (total_amount !== expectedAmount) {
-            console.error('Amount mismatch. Expected:', expectedAmount, 'Received:', total_amount);
+             console.error(`[Payment Amount Mismatch] Expected: ${expectedAmount}, Received: ${total_amount}`);
+             await logActivity({
+                req,
+                userId: req.user._id,
+                action: 'PAYMENT_TAMPER_ATTEMPT',
+                module: 'Payment',
+                metadata: {
+                     pidx,
+                     expected: expectedAmount,
+                     received: total_amount
+                },
+                level: 'error'
+            });
             return res.status(400).json({
                 success: false,
                 message: 'Payment amount mismatch. Please contact support.'
@@ -204,27 +237,72 @@ exports.verifySubscriptionPayment = async (req, res) => {
         }
 
         if (status === 'Completed') {
-            const user = await User.findById(paymentRecord.user);
+            
+            // Use atomic update to prevent race conditions (double verification)
+            // But we first check if it's already done to support idempotency?
+            // Actually findOneAndUpdate is fine. If it returns null, we check why.
+            
+            const updatedPayment = await Payment.findOneAndUpdate(
+                { 
+                    khaltiPidx: pidx, 
+                    status: { $ne: 'COMPLETE' } 
+                },
+                {
+                    $set: {
+                        status: 'COMPLETE',
+                        khaltiTransactionId: transaction_id
+                    }
+                },
+                { new: true }
+            );
+
+            let finalPaymentRecord = updatedPayment;
+
+            if (!updatedPayment) {
+                // Check if it was already completed
+                const existingPayment = await Payment.findOne({ khaltiPidx: pidx });
+                if (existingPayment && existingPayment.status === 'COMPLETE') {
+                    finalPaymentRecord = existingPayment;
+                    console.log('Payment already verified (Idempotent success):', pidx);
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Payment status invalid or already processed.'
+                    });
+                }
+            }
+
+            // Now safely update the user (idempotent operation is fine here)
+            const user = await User.findById(finalPaymentRecord.user);
             if (!user) {
                 return res.status(404).json({ success: false, message: 'User not found.' });
             }
 
             // Update User Subscription
-            user.subscription.plan = paymentRecord.productCode; // 'BASIC' or 'PRO'
+            user.subscription.plan = finalPaymentRecord.productCode; 
             user.subscription.status = 'ACTIVE';
             user.subscription.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 Year
             await user.save();
 
-            // Update Payment Record
-            paymentRecord.status = 'COMPLETE';
-            paymentRecord.khaltiTransactionId = transaction_id;
-            await paymentRecord.save();
-
-            console.log('Payment verification successful:', user.email, 'Plan:', paymentRecord.productCode);
+            // Log only if it was a fresh update
+            if (updatedPayment) {
+                await logActivity({
+                    req,
+                    userId: user._id,
+                    action: 'PAYMENT_VERIFIED',
+                    module: 'Payment',
+                    metadata: {
+                        pidx: finalPaymentRecord.khaltiPidx,
+                        plan: finalPaymentRecord.productCode,
+                        amount: finalPaymentRecord.amount,
+                        transactionId: transaction_id
+                    }
+                });
+            }
 
             res.status(200).json({
                 success: true,
-                message: `Successfully upgraded to ${paymentRecord.productCode} plan.`,
+                message: `Successfully upgraded to ${finalPaymentRecord.productCode} plan.`,
                 plan: user.subscription.plan
             });
         } else {
@@ -239,8 +317,19 @@ exports.verifySubscriptionPayment = async (req, res) => {
              paymentRecord.status = statusMap[status] || status.toUpperCase();
              await paymentRecord.save();
              
-             console.log('Payment verification failed. Status:', status, 'User:', req.user.email);
-             
+             await logActivity({
+                req,
+                userId: req.user._id,
+                action: 'PAYMENT_VERIFY_FAIL',
+                module: 'Payment',
+                metadata: {
+                    pidx: paymentRecord.khaltiPidx,
+                    status: status,
+                    error: 'Payment not completed'
+                },
+                level: 'warn'
+             });
+
              res.status(400).json({
                 success: false,
                 message: `Payment ${status.toLowerCase()}. Please try again or contact support.`

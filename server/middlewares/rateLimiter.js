@@ -75,3 +75,10 @@ exports.mfaLimiter = createLimiter(
     'Too many 2FA attempts. Please try again after 15 minutes.',
     (req) => req.user ? req.user._id.toString() : req.ip
 );
+
+exports.paymentLimiter = createLimiter(
+    15 * 60 * 1000,
+    5,
+    'Too many payment attempts. Please try again after 15 minutes.',
+    (req) => req.user ? req.user._id.toString() : req.ip
+);

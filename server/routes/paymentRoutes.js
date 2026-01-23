@@ -6,8 +6,10 @@ const express = require('express');
 const router = express.Router();
 
 
+const { paymentLimiter } = require('../middlewares/rateLimiter');
+
 router.get('/history', protect, getPaymentHistory);
-router.post('/initiate-subscription', protect,initiateSubscriptionPayment);
-router.post('/verify-subscription', protect,verifySubscriptionPayment);
+router.post('/initiate-subscription', protect, paymentLimiter, initiateSubscriptionPayment);
+router.post('/verify-subscription', protect, paymentLimiter, verifySubscriptionPayment);
 
 module.exports = router;
