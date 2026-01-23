@@ -21,11 +21,22 @@ const paymentSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['PENDING', 'COMPLETE', 'FAILED'],
+        enum: ['PENDING', 'COMPLETE', 'FAILED', 'REFUNDED', 'EXPIRED', 'USER_CANCELED'],
         default: 'PENDING',
     },
     esewaTransactionCode: { 
         type: String,
+    },
+    khaltiPidx: {
+        type: String,
+    },
+    khaltiTransactionId: {
+        type: String,
+    },
+    source: {
+        type: String,
+        enum: ['web', 'mobile'], // Optional: to track where payment started
+        default: 'web'
     }
 }, { timestamps: true });
 
