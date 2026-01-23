@@ -57,6 +57,9 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
+// CSRF Protection - must be after cookieParser
+const csrfProtect = require('./middlewares/csrfProtect');
+app.use(csrfProtect);
 
 app.use(mongoSanitize());
 

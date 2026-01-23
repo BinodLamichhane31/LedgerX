@@ -542,14 +542,13 @@ exports.updateProfile = async (req, res) => {
       message: "Profile updated successfully.",
       data: updatedUser,
     });
-  } catch (error) {
+    } catch (error) {
     if (error.code === 11000 && error.keyPattern && error.keyPattern.phone) {
         return res.status(409).json({
             success: false,
             message: "Phone number already in use by another account."
         });
     }
-    console.log(error);
     return res.status(500).json({
       success: false,
       message: `Server error: ${error.message}`,
@@ -687,11 +686,10 @@ exports.logout = async (req, res) => {
       if (refreshToken) {
         // Hash and revoke the refresh session
         const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-        const result = await RefreshSession.updateOne(
+        await RefreshSession.updateOne(
           { refreshTokenHash, revokedAt: null },
           { revokedAt: new Date() }
         );
-        console.log('[LOGOUT] Session revoked - matched:', result.matchedCount, 'modified:', result.modifiedCount);
       }
 
       // Clear both cookies with identical options (must match set options exactly)
@@ -700,7 +698,6 @@ exports.logout = async (req, res) => {
 
       res.cookie('token', '', authOptions);
       res.cookie('refreshToken', '', refreshOptions);
-      console.log('[LOGOUT] Cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite, 'secure:', authOptions.secure);
       
       res.status(200).json({ success: true, message: "Logged out successfully." });
     } catch (error) {
@@ -1201,11 +1198,8 @@ exports.resetPassword = async (req, res) => {
 exports.refreshToken = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
-    
-    console.log('[REFRESH] Cookie present:', refreshToken ? 'yes' : 'no');
 
     if (!refreshToken) {
-      console.log('[REFRESH] No refresh token provided');
       return res.status(401).json({
         success: false,
         message: 'No refresh token provided'
@@ -1214,26 +1208,20 @@ exports.refreshToken = async (req, res) => {
 
     // Hash the refresh token
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-    const hashPrefix = refreshTokenHash.substring(0, 6);
-    console.log('[REFRESH] Hash prefix:', hashPrefix);
 
     // Find the session
     const session = await RefreshSession.findOne({ refreshTokenHash });
 
     if (!session) {
-      console.log('[REFRESH] Session not found for hash:', hashPrefix);
       return res.status(401).json({
         success: false,
         message: 'Invalid refresh token'
       });
     }
 
-    console.log('[REFRESH] Session found - revokedAt:', session.revokedAt ? 'yes' : 'no', 'expiresAt:', session.expiresAt);
-
     // Check if session is revoked (REUSE DETECTION)
     if (session.revokedAt) {
       const ip = req.ip || req.connection.remoteAddress || 'unknown';
-      console.log('[REFRESH] Revoked session detected, revoking all sessions for user:', session.userId);
       
       // SECURITY: Revoke ALL sessions for this user
       await RefreshSession.updateMany(
@@ -1246,7 +1234,6 @@ exports.refreshToken = async (req, res) => {
       const refreshOptions = { ...getRefreshCookieOptions(), expires: new Date(0) };
       res.cookie('token', '', authOptions);
       res.cookie('refreshToken', '', refreshOptions);
-      console.log('[REFRESH] Cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite, 'secure:', authOptions.secure);
 
       // Log the reuse attempt
       securityLogger.logRefreshReuseDetected(session.userId.toString(), ip, req);
@@ -1259,7 +1246,6 @@ exports.refreshToken = async (req, res) => {
 
     // Check if session is expired
     if (session.expiresAt < new Date()) {
-      console.log('[REFRESH] Session expired');
       return res.status(401).json({
         success: false,
         message: 'Refresh token expired'
@@ -1310,7 +1296,6 @@ exports.refreshToken = async (req, res) => {
 
     res.cookie('token', newAccessToken, authOptions);
     res.cookie('refreshToken', newRefreshToken, refreshOptions);
-    console.log('[REFRESH] New tokens set - path:', authOptions.path, 'sameSite:', authOptions.sameSite);
 
     return res.status(200).json({
       success: true,
@@ -1334,11 +1319,10 @@ exports.logoutAll = async (req, res) => {
     const userId = req.user._id;
 
     // Revoke all refresh sessions
-    const result = await RefreshSession.updateMany(
+    await RefreshSession.updateMany(
       { userId, revokedAt: null },
       { revokedAt: new Date() }
     );
-    console.log('[LOGOUT-ALL] Revoked sessions - matched:', result.matchedCount, 'modified:', result.modifiedCount);
 
     // Clear cookies with identical options (must match set options exactly)
     const authOptions = { ...getAuthCookieOptions(), expires: new Date(0) };
@@ -1346,7 +1330,6 @@ exports.logoutAll = async (req, res) => {
 
     res.cookie('token', '', authOptions);
     res.cookie('refreshToken', '', refreshOptions);
-    console.log('[LOGOUT-ALL] Cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite, 'secure:', authOptions.secure);
 
     await logActivity({
       req,
@@ -1381,9 +1364,6 @@ exports.getSessions = async (req, res) => {
 
     if (currentRefreshToken) {
       currentRefreshTokenHash = crypto.createHash('sha256').update(currentRefreshToken).digest('hex');
-      console.log('[GET-SESSIONS] Current token hash prefix:', currentRefreshTokenHash.substring(0, 6));
-    } else {
-      console.log('[GET-SESSIONS] No current refresh token cookie');
     }
 
     // Get all active sessions
@@ -1393,8 +1373,6 @@ exports.getSessions = async (req, res) => {
       expiresAt: { $gt: new Date() }
     }).sort({ lastUsedAt: -1 });
 
-    console.log('[GET-SESSIONS] Found', sessions.length, 'active sessions');
-
     // Mask IP and add isCurrent flag
     const maskedSessions = sessions.map(session => {
       const ipParts = session.ip.split('.');
@@ -1403,7 +1381,6 @@ exports.getSessions = async (req, res) => {
         : session.ip.substring(0, session.ip.length - 3) + 'xxx';
 
       const isCurrent = session.refreshTokenHash === currentRefreshTokenHash;
-      console.log('[GET-SESSIONS] Session', session._id, '- hash prefix:', session.refreshTokenHash.substring(0, 6), 'isCurrent:', isCurrent);
 
       return {
         id: session._id,
@@ -1442,7 +1419,6 @@ exports.revokeSession = async (req, res) => {
     const session = await RefreshSession.findById(sessionId);
 
     if (!session) {
-      console.log('[REVOKE] Session not found:', sessionId);
       return res.status(404).json({
         success: false,
         message: 'Session not found'
@@ -1451,7 +1427,6 @@ exports.revokeSession = async (req, res) => {
 
     // Verify ownership
     if (!session.userId.equals(userId)) {
-      console.log('[REVOKE] Ownership mismatch - session userId:', session.userId, 'request userId:', userId);
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to revoke this session'
@@ -1463,13 +1438,11 @@ exports.revokeSession = async (req, res) => {
     if (currentRefreshToken) {
       const currentRefreshTokenHash = crypto.createHash('sha256').update(currentRefreshToken).digest('hex');
       isCurrentSession = session.refreshTokenHash === currentRefreshTokenHash;
-      console.log('[REVOKE] Current token hash prefix:', currentRefreshTokenHash.substring(0, 6), 'session hash prefix:', session.refreshTokenHash.substring(0, 6), 'isCurrent:', isCurrentSession);
     }
 
     // Revoke the session
     session.revokedAt = new Date();
     await session.save();
-    console.log('[REVOKE] Session revoked - revokedAt set:', session.revokedAt);
 
     await logActivity({
       req,
@@ -1486,7 +1459,6 @@ exports.revokeSession = async (req, res) => {
 
       res.cookie('token', '', authOptions);
       res.cookie('refreshToken', '', refreshOptions);
-      console.log('[REVOKE] Current session - cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite);
 
       return res.status(200).json({
         success: true,

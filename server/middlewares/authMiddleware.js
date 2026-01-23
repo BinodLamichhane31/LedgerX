@@ -58,7 +58,6 @@ exports.protect = async (req, res, next) => {
             });
             
             if (session && session.revokedAt) {
-                console.log('[PROTECT] Revoked session detected for user:', currentUser._id);
                 // Clear cookies
                 const { getAuthCookieOptions, getRefreshCookieOptions } = require('../utils/cookieOptions');
                 const authOptions = { ...getAuthCookieOptions(), expires: new Date(0) };
