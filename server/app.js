@@ -50,6 +50,44 @@ const app = express();
 app.set("trust proxy", 1);
 
 app.use(cors(corsOptions));
+
+
+// Helmet
+app.use(helmet({
+  hsts: false  // Disable HSTS by default, enable only in production
+}));
+
+// Content Security Policy (CSP) - Conservative defaults for API backend
+app.use(helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],                    // Only allow resources from same origin
+    scriptSrc: ["'self'"],                     // Only allow scripts from same origin
+    styleSrc: ["'self'"],                      // Only allow styles from same origin
+    imgSrc: ["'self'", "data:"],               // Allow images from same origin + data URIs
+    fontSrc: ["'self'"],                       // Only allow fonts from same origin
+    connectSrc: ["'self'"],                    // Only allow AJAX/WebSocket to same origin
+    frameAncestors: ["'none'"],                // Prevent clickjacking (CSP equivalent of X-Frame-Options: DENY)
+    baseUri: ["'self'"],                       // Restrict base tag URLs
+    formAction: ["'self'"]                     // Restrict form submissions to same origin
+  }
+}));
+
+// HTTP Strict Transport Security (HSTS) - Production only, requires HTTPS
+if (process.env.NODE_ENV === 'production') {
+  app.use(helmet.hsts({
+    maxAge: 31536000,        // 1 year in seconds
+    includeSubDomains: true, // Apply to all subdomains
+    preload: true            // Allow inclusion in browser HSTS preload lists
+  }));
+}
+
+// 4. X-Frame-Options -
+app.use(helmet.frameguard({ action: "deny" }));
+
+// 5. X-Content-Type-Options
+app.use(helmet.noSniff());
+
+// 6. Cross-Origin Resource Policy
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
 
