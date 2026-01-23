@@ -128,17 +128,38 @@ app.use("/api/payments", paymentRoutes);
 app.use((err, req, res, next) => {
   console.error(err.stack);
 
+  // Multer file size error
   if (err instanceof require('multer').MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ success: false, message: 'File too large. Max size is 5MB.' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Image file is too large. Please upload an image smaller than 5MB.' 
+      });
     }
+    // Other multer errors
+    return res.status(400).json({ 
+      success: false, 
+      message: 'File upload error. Please try again.' 
+    });
   }
 
-  // Handle custom errors from fileFilter
+  // File type validation error
   if (err.message === 'Only JPG, PNG, and WEBP images are allowed.') {
-    return res.status(400).json({ success: false, message: err.message });
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Invalid file type. Please upload a JPG, PNG, or WEBP image.' 
+    });
   }
 
+  // Image processing error (from sharp/processImage middleware)
+  if (err.message === 'Invalid or corrupted image file') {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'The uploaded image is corrupted or invalid. Please try a different image.' 
+    });
+  }
+
+  // Default error response
   res.status(500).json({
     success: false,
     message: 'Internal Server Error',

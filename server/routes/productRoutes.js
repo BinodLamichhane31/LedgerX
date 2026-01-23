@@ -10,6 +10,7 @@ router.post(
     "/",
     protect,
     upload.single('productImage'),
+    upload.processImage,  
     addProduct
 )
 
@@ -29,6 +30,7 @@ router.put(
     '/:productId',
     protect,
     upload.single('productImage'),
+    upload.processImage,  
     updateProduct
 )
 

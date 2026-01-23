@@ -80,6 +80,7 @@ router.put(
   "/upload-profile-image",
   protect,
   upload.single('image'),
+  upload.processImage,  // SECURITY: Re-encode, resize, strip metadata
   uploadProfileImage
 )
 router.get(
