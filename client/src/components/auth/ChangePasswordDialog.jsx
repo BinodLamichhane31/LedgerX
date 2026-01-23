@@ -68,7 +68,7 @@ const ChangePasswordDialog = ({ isOpen, onClose, onConfirm, isLoading }) => {
         }
 
         onConfirm({
-            currentPassword: passwordData.currentPassword,
+            oldPassword: passwordData.currentPassword,
             newPassword: passwordData.newPassword
         });
     };

@@ -2,10 +2,10 @@ const { body } = require("express-validator");
 const { isCommonPassword } = require("../utils/passwordUtils");
 
 exports.registerValidation = [
-    body("fname").isString().notEmpty().withMessage("First name is required"),
-    body("lname").isString().notEmpty().withMessage("Last name is required"),
-    body("email").isString().isEmail().withMessage("Invalid email format"),
-    body("phone").isString().isMobilePhone('ne-NP').withMessage("Invalid phone number. Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)."),
+    body("fname").isString().withMessage("First name must be a string").notEmpty().withMessage("First name is required"),
+    body("lname").isString().withMessage("Last name must be a string").notEmpty().withMessage("Last name is required"),
+    body("email").isString().withMessage("Email must be a string").isEmail().withMessage("Invalid email format"),
+    body("phone").isString().withMessage("Phone number must be a string").isMobilePhone('ne-NP').withMessage("Invalid phone number. Please enter a valid Nepali mobile number (e.g., 98XXXXXXXX)."),
     body("password")
         .isString()
         .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/)
@@ -31,9 +31,9 @@ exports.loginValidation = [
 ];
 
 exports.changePasswordValidation = [
-    body("oldPassword").isString().notEmpty().withMessage("Old password is required"),
+    body("oldPassword").isString().withMessage("Old password must be a string").notEmpty().withMessage("Old password is required"),
     body("newPassword")
-        .isString()
+        .isString().withMessage("New password must be a string")
         .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/)
         .withMessage("Password must be at least 8 characters with uppercase, lowercase, digit, and special character"),
 ];

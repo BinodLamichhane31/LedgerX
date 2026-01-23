@@ -1,9 +1,11 @@
 const speakeasy = require("speakeasy");
 const QRCode = require("qrcode");
 const User = require("../models/User");
+const RefreshSession = require("../models/RefreshSession");
 const bcrypt = require("bcrypt");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { logActivity } = require("../services/activityLogger");
+const securityLogger = require("../utils/securityLogger");
 
 const hashCodes = async (codes) => {
     return Promise.all(codes.map(code => bcrypt.hash(code, 10)));
@@ -157,19 +159,21 @@ exports.disableMFA = async (req, res) => {
              return res.status(400).json({ success: false, message: "Invalid TOTP code" });
         }
 
-        // Disable
+        // Disable MFA
         user.mfa.enabled = false;
         user.mfa.secret = undefined;
         user.mfa.recoveryCodes = [];
+        user.securityStamp = Date.now(); // Update security stamp to invalidate all tokens
         await user.save();
         
-        // Log MFA disablement
-        await logActivity({
-            userId: req.user._id,
-            action: 'MFA_DISABLED',
-            module: 'Auth',
-            metadata: { ip: req.ip }
-        });
+        // Revoke all refresh sessions (force re-login on all devices)
+        await RefreshSession.updateMany(
+          { userId: user._id, revokedAt: null },
+          { revokedAt: new Date() }
+        );
+        
+        // Log MFA disablement with security logger
+        securityLogger.logMfaDisabled(userId.toString(), user.email, req);
 
         res.json({ success: true, message: "MFA disabled successfully" });
 

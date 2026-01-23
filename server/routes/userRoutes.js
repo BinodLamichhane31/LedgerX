@@ -1,5 +1,5 @@
 const express = require('express')
-const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback, forgotPassword, resetPassword, verifyMFA } = require('../controllers/authController')
+const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback, forgotPassword, resetPassword, verifyMFA, refreshToken, logoutAll, getSessions, revokeSession } = require('../controllers/authController')
 const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation, resetPasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
@@ -107,5 +107,15 @@ router.put(
   validate,
   resetPassword
 );
+
+// Refresh token endpoint (public, uses refresh token cookie)
+router.post("/refresh", refreshToken);
+
+// Logout from all devices
+router.post("/logout-all", protect, logoutAll);
+
+// Session management
+router.get("/sessions", protect, getSessions);
+router.delete("/sessions/:id", protect, revokeSession);
 
 module.exports = router

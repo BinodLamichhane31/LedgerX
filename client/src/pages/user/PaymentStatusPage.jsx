@@ -31,22 +31,16 @@ const PaymentStatusPage = () => {
             }
             
             if (pidx) {
-                setPageStatus('pending'); // Keep pending until verified by our backend
+                setPageStatus('pending'); // Keep pending until verified by backend
                 
                 verifyPayment(
                     { pidx }, 
                     {
                         onSuccess: (data) => {
                             setPageStatus('success');
-                            // We don't need to manually refetch/update profile here.
-                            // The backend handles the subscription update.
-                            // The user will be redirected to subscription page, which will fetch fresh data on mount.
                             setTimeout(() => navigate('/subscription'), 3000);
                         },
                         onError: (error) => {
-                             // Backend might return 200 now for Idempotent success, but if it returns 400 with 'already verified',
-                             // we can potentially handle it here too if we didn't change backend.
-                             // But since we changed backend to return 200, this onError is for real errors.
                             console.error("Payment verification failed:", error);
                             setPageStatus('error');
                         }

@@ -186,7 +186,6 @@ exports.verifySubscriptionPayment = async (req, res) => {
             });
         }
         
-        // Prevent duplicate verification check moved to atomic update logic for idempotency
 
         
         // Verify the payment belongs to the requesting user

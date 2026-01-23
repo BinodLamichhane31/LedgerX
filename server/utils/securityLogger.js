@@ -197,3 +197,71 @@ module.exports = {
   logSuspiciousActivity,
   logCommonPasswordAttempt
 };
+
+
+const logPasswordChanged = async (userId, email, req = null) => {
+  logger.info('Password changed - securityStamp updated', {
+    action: 'PASSWORD_CHANGED',
+    userId,
+    email,
+    timestamp: new Date().toISOString()
+  });
+
+  await logActivity({
+    req,
+    userId,
+    action: 'PASSWORD_CHANGED',
+    module: 'Auth',
+    metadata: { email }
+  });
+};
+
+
+const logMfaDisabled = async (userId, email, req = null) => {
+  logger.info('MFA disabled - securityStamp updated', {
+    action: 'MFA_DISABLED',
+    userId,
+    email,
+    timestamp: new Date().toISOString()
+  });
+
+  await logActivity({
+    req,
+    userId,
+    action: 'MFA_DISABLED',
+    module: 'Auth',
+    metadata: { email }
+  });
+};
+
+
+const logRefreshReuseDetected = async (userId, ip, req = null) => {
+  logger.error('Refresh token reuse detected - revoking all sessions', {
+    action: 'REFRESH_REUSE_DETECTED',
+    userId,
+    ip,
+    timestamp: new Date().toISOString()
+  });
+
+  await logActivity({
+    req,
+    userId,
+    action: 'REFRESH_REUSE_DETECTED',
+    module: 'Auth',
+    metadata: { ip },
+    level: 'error'
+  });
+};
+
+module.exports = {
+  logPasswordChangeAttempt,
+  logPasswordReuseAttempt,
+  logExpiredPasswordLogin,
+  logFailedLogin,
+  logSuccessfulLogin,
+  logSuspiciousActivity,
+  logCommonPasswordAttempt,
+  logPasswordChanged,
+  logMfaDisabled,
+  logRefreshReuseDetected
+};

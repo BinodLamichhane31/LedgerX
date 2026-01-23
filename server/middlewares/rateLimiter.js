@@ -48,6 +48,13 @@ exports.reportLimiter = createLimiter(
     (req) => req.user ? req.user._id.toString() : req.ip
 );
 
+exports.dashboardLimiter = createLimiter(
+    1 * 60 * 1000, // 1 minute window
+    60, // 60 requests per minute (lenient for dashboard stats/charts)
+    'Dashboard request limit exceeded. Please try again in a moment.',
+    (req) => req.user ? req.user._id.toString() : req.ip
+);
+
 exports.adminLimiter = createLimiter(
     15 * 60 * 1000,
     300,

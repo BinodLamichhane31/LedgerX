@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertCircle,
-  History
+  History,
+  Laptop
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -34,18 +35,19 @@ import MFASetupModal from '../components/auth/MFASetupModal';
 import DisableMFADialog from '../components/auth/DisableMFADialog';
 import ChangePasswordDialog from '../components/auth/ChangePasswordDialog';
 import SubscriptionHistory from '../components/user/SubscriptionHistory';
+import SessionsList from '../components/auth/SessionsList';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
 
 const ProfilePage = () => {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, setUser, logout } = useContext(AuthContext);
   const { data: dbProfile } = useGetProfile();
   const { data: paymentsResponse, isLoading: isPaymentsLoading } = useGetPaymentHistory();
   
   const currentUser = dbProfile?.data || user;
   const payments = paymentsResponse?.data || [];
 
-  const [activeTab, setActiveTab] = useState('account'); // 'account', 'security', or 'history'
+  const [activeTab, setActiveTab] = useState('account'); // 'account', 'security', 'sessions', or 'history'
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -103,10 +105,12 @@ const ProfilePage = () => {
     setIsLoading(true);
     try {
       await changePasswordService(data);
-      toast.success('Password changed successfully');
+      toast.success('Password changed successfully. Logging out...');
       setIsChangePasswordDialogOpen(false);
+      logout();
     } catch (error) {
-      const errorMessage = error.response?.status === 401 ? "Incorrect current password." : "An error occurred.";
+      // Show backend error message if available, otherwise show user-friendly default
+      const errorMessage = error.response?.data?.message || error.message || "An error occurred while changing your password.";
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -209,6 +213,15 @@ const ProfilePage = () => {
             Security
           </button>
           <button
+            onClick={() => setActiveTab('sessions')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-all ${
+              activeTab === 'sessions' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Laptop size={18} />
+            Sessions
+          </button>
+          <button
             onClick={() => setActiveTab('history')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold rounded-xl transition-all ${
               activeTab === 'history' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
@@ -274,6 +287,16 @@ const ProfilePage = () => {
                    )}
                 </div>
              </motion.div>
+          )}
+
+          {activeTab === 'sessions' && (
+            <motion.div key="sessions" variants={tabVariants} initial="hidden" animate="visible" exit="exit" className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+              <h3 className="text-lg font-bold mb-4">Active Sessions</h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Manage your active sessions across all devices. You can revoke access to any device at any time.
+              </p>
+              <SessionsList />
+            </motion.div>
           )}
 
           {activeTab === 'history' && (

@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback, useMemo, useContext } from "react";
+import { createContext, useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetShops, useSelectActiveShop } from "../hooks/useShop";
 import { socket } from "../socket";
@@ -6,6 +6,10 @@ import SwitchingShopOverlay from "../components/ui/SwitchingShopOverlay";
 import LogoutOverlay from "../components/ui/LogoutOverlay";
 import { toast } from "react-toastify";
 import { getProfileService, logoutUserService } from "../services/authService";
+import axiosInstance from "../api/api";
+import { refreshTokenApi } from "../api/authApi";
+
+import { useNavigate } from "react-router-dom";
 
 export const AuthContext = createContext();
 
@@ -20,6 +24,7 @@ const AuthContextProvider = ({ children }) => {
     const [switchingToShopName, setSwitchingToShopName] = useState(''); 
     const [toastInfo, setToastInfo] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const navigate = useNavigate();
 
     
     const [currentShopId, setCurrentShopId] = useState(() => 
@@ -112,9 +117,79 @@ const AuthContextProvider = ({ children }) => {
         
         setTimeout(() => {
             setIsLoggingOut(false);
-            window.location.href = '/login'; // Redirect to login page instead of reload
+            navigate('/login');
         }, 500); 
-    }, [queryClient]);
+    }, [queryClient, navigate]);
+
+    // Mutex for refreshing token
+    const isRefreshing = useRef(false);
+    const failedQueue = useRef([]);
+
+    const processQueue = (error, token = null) => {
+        failedQueue.current.forEach(prom => {
+            if (error) {
+                prom.reject(error);
+            } else {
+                prom.resolve(token);
+            }
+        });
+        failedQueue.current = [];
+    };
+
+    // Setup Axios interceptor for 401 handling
+    useEffect(() => {
+        const interceptor = axiosInstance.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const originalRequest = error.config;
+                
+                // If 401 and not already retrying
+                if (error.response?.status === 401 && !originalRequest._retry) {
+                    // Prevent infinite loops if refresh endpoint itself fails or is the request
+                    // Also exclude logout and logout-all to prevent recursion
+                    if (originalRequest.url.includes('/auth/refresh') || 
+                        originalRequest.url.includes('/auth/login') || 
+                        originalRequest.url.includes('/auth/logout')) {
+                        return Promise.reject(error);
+                    }
+
+                    if (isRefreshing.current) {
+                        return new Promise((resolve, reject) => {
+                            failedQueue.current.push({ resolve, reject });
+                        })
+                        .then(() => axiosInstance(originalRequest))
+                        .catch(err => Promise.reject(err));
+                    }
+
+                    originalRequest._retry = true;
+                    isRefreshing.current = true;
+
+                    try {
+                        await refreshTokenApi();
+                        processQueue(null, true);
+                        isRefreshing.current = false;
+                        return axiosInstance(originalRequest);
+                    } catch (refreshError) {
+                        processQueue(refreshError, null);
+                        isRefreshing.current = false;
+                        
+                        // Prevent duplicate toasts
+                        if (!toast.isActive('session-expired')) {
+                            toast.error("Session expired. Please login again.", { toastId: 'session-expired' });
+                        }
+                        // Only call logout if not already logging out to avoid state thrashing (though exclusion above solves the loop)
+                        logout();
+                        return Promise.reject(refreshError);
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => {
+            axiosInstance.interceptors.response.eject(interceptor);
+        };
+    }, [logout]);
 
     const showQueuedToast = () => {
         if (toastInfo) {
@@ -168,8 +243,13 @@ const AuthContextProvider = ({ children }) => {
                  setUser(JSON.parse(storedUser));
                  setAuthLoading(false);
              } else {
-                // Try to fetch profile from backend (in case of OAuth redirect or persistent cookie)
+                // Try to refresh token first, then fetch profile
                 try {
+                    // Try refresh token first - this will set new cookies if valid
+                    await refreshTokenApi();
+                    // Small delay to ensure cookies are set
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // If refresh succeeds, fetch profile
                     const response = await getProfileService();
                     if (response && response.data) {
                         const userData = response.data;
@@ -186,7 +266,15 @@ const AuthContextProvider = ({ children }) => {
                         }
                     }
                 } catch (error) {
-                    // Auth check failed or no session
+                    // Refresh failed or profile fetch failed - no valid session
+                    // Don't trigger logout here, just set loading to false
+                    // The interceptor will handle 401s on actual API calls
+                    // Only clear localStorage if refresh explicitly failed (not just profile)
+                    if (error.response?.status === 401 && error.config?.url?.includes('/auth/refresh')) {
+                        // Refresh token is invalid, clear any stale data
+                        localStorage.removeItem("user");
+                        localStorage.removeItem("currentShopId");
+                    }
                 } finally {
                     setAuthLoading(false);
                 }

@@ -15,3 +15,8 @@ export const uploadProfileImageApi = (formData) => {
     },
   });
 };
+// Session management
+export const getSessionsApi = () => axios.get("/auth/sessions", { withCredentials: true });
+export const revokeSessionApi = (sessionId) => axios.delete(`/auth/sessions/${sessionId}`, { withCredentials: true });
+export const logoutAllApi = () => axios.post("/auth/logout-all", {}, { withCredentials: true });
+export const refreshTokenApi = () => axios.post("/auth/refresh", {}, { withCredentials: true });

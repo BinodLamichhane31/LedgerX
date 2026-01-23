@@ -1,4 +1,4 @@
-import { getProfileApi, loginUserApi, logoutUserApi, registerUserApi, updateProfileApi, uploadProfileImageApi, changePasswordApi, forgotPasswordApi, resetPasswordApi } from "../api/authApi";
+import { getProfileApi, loginUserApi, logoutUserApi, registerUserApi, updateProfileApi, uploadProfileImageApi, changePasswordApi, forgotPasswordApi, resetPasswordApi, getSessionsApi, revokeSessionApi, logoutAllApi } from "../api/authApi";
 
 export const registerUserService = async (formData) =>{
     try {
@@ -87,3 +87,31 @@ export const resetPasswordService = async (token, data) => {
         throw error.response?.data || { message: "Failed to reset password" };
     }
 }
+
+// Session management services
+export const getSessionsService = async () => {
+    try {
+        const response = await getSessionsApi();
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: "Failed to fetch sessions" };
+    }
+};
+
+export const revokeSessionService = async (sessionId) => {
+    try {
+        const response = await revokeSessionApi(sessionId);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: "Failed to revoke session" };
+    }
+};
+
+export const logoutAllService = async () => {
+    try {
+        const response = await logoutAllApi();
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: "Failed to logout from all devices" };
+    }
+};

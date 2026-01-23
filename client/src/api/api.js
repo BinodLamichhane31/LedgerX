@@ -5,6 +5,7 @@ axios.defaults.withCredentials = true;
 
 const instance = axios.create({
     baseURL: API_URL,
+    withCredentials: true,
     headers: {
         'Content-Type':'application/json'
     }

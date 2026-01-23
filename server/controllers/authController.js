@@ -4,7 +4,8 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const fs = require("fs");
 const Shop = require("../models/Shop");
-const { checkPasswordHistory, addToPasswordHistory, isPasswordExpired } = require("../utils/passwordUtils");
+const RefreshSession = require("../models/RefreshSession");
+const { checkPasswordHistory, addToPasswordHistory, isPasswordExpired, isCommonPassword } = require("../utils/passwordUtils");
 const securityLogger = require("../utils/securityLogger");
 const { logActivity } = require("../services/activityLogger");
 const crypto = require('crypto');
@@ -14,22 +15,37 @@ const sendEmail = require("../utils/sendEmail");
 const { validateImageFile } = require("../utils/fileValidation");
 const speakeasy = require("speakeasy");
 const { decrypt } = require("../utils/encryption");
+const { getAuthCookieOptions, getRefreshCookieOptions } = require("../utils/cookieOptions");
 
 const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
+  // Generate access token (short-lived)
   const token = jwt.sign({id: user._id, role: user.role},process.env.JWT_SECRET,{
       expiresIn: process.env.JWT_EXPIRE
   });
 
-  const options = {
-    expires: new Date(Date.now()+process.env.JWT_COOKIE_EXPIRE*24*60*60*1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production' 
-  };
-   
-  if (process.env.NODE_ENV === 'production') {
-    options.sameSite = 'None';
-  }
+  // Generate refresh token (long-lived, random)
+  const refreshToken = crypto.randomBytes(64).toString('hex');
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
 
+  // Get client info
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+
+  // Create refresh session
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  await RefreshSession.create({
+    userId: user._id,
+    refreshTokenHash,
+    createdAt: new Date(),
+    lastUsedAt: new Date(),
+    expiresAt,
+    ip,
+    userAgent
+  });
+
+  const authOptions = getAuthCookieOptions();
+  const refreshOptions = getRefreshCookieOptions();
+   
   // Log successful login
   await logActivity({
       req,
@@ -39,24 +55,27 @@ const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
       metadata: { email: user.email, role: user.role }
   });
 
-  res.status(statusCode).cookie("token",token, options).json({
-    success: true,
-    message:"Login successful.",
-    data: {
-      user:{
-        id: user._id,
-        fname: user.fname,
-        lname: user.lname,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        profileImage: user.profileImage,
-        shops: user.shops, // Include shops in response
-        currentShopId: currentShop ? currentShop._id : null,
-        passwordLastUpdated: user.passwordLastUpdated
+  res.status(statusCode)
+    .cookie("token", token, authOptions)
+    .cookie("refreshToken", refreshToken, refreshOptions)
+    .json({
+      success: true,
+      message:"Login successful.",
+      data: {
+        user:{
+          id: user._id,
+          fname: user.fname,
+          lname: user.lname,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          profileImage: user.profileImage,
+          shops: user.shops,
+          currentShopId: currentShop ? currentShop._id : null,
+          passwordLastUpdated: user.passwordLastUpdated
+        }
       }
-    }
-  });
+    });
 };
 
 
@@ -257,21 +276,44 @@ exports.googleOAuthCallback = async (req, res) => {
     // 8. Clear OAuth state cookie
     res.clearCookie('oauth_state');
 
-    // 9. Generate JWT and store in httpOnly cookie
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE }
-    );
+    // 9. Get active shop for user
+    let activeShop = null;
+    if (user.shops && user.shops.length > 0) {
+      const lastShop = user.shops.find(s => s._id.equals(user.activeShop));
+      if (lastShop) {
+        activeShop = lastShop;
+      } else {
+        activeShop = user.shops[0];
+      }
+    }
 
-    const cookieOptions = {
-      expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000),
-      httpOnly: true,
-      sameSite: 'strict',
-      secure: process.env.NODE_ENV === "production"
-    };
+    // 10. Generate tokens and create refresh session (for OAuth, set cookies but don't send JSON)
+    const token = jwt.sign({id: user._id, role: user.role},process.env.JWT_SECRET,{
+      expiresIn: process.env.JWT_EXPIRE
+    });
 
-    res.cookie('token', token, cookieOptions);
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    
+    await RefreshSession.create({
+      userId: user._id,
+      refreshTokenHash,
+      createdAt: new Date(),
+      lastUsedAt: new Date(),
+      expiresAt,
+      ip,
+      userAgent
+    });
+
+    const authOptions = getAuthCookieOptions();
+    const refreshOptions = getRefreshCookieOptions();
+    
+    res.cookie("token", token, authOptions);
+    res.cookie("refreshToken", refreshToken, refreshOptions);
 
     await logActivity({
       req,
@@ -281,7 +323,7 @@ exports.googleOAuthCallback = async (req, res) => {
       metadata: { email: user.email, role: user.role }
     });
 
-    // 10. Redirect to frontend WITHOUT token in URL
+    // 11. Redirect to frontend WITHOUT token in URL
     if (!user.shops || user.shops.length === 0) {
       res.redirect(`${process.env.CLIENT_WEB_URL}/create-first-shop`);
     } else {
@@ -536,6 +578,15 @@ exports.changePassword = async (req, res) => {
       });
     }
 
+    // Check if password is a common/weak password
+    if (isCommonPassword(newPassword)) {
+      securityLogger.logPasswordChangeAttempt(userId.toString(), user.email, false, 'COMMON_PASSWORD');
+      return res.status(400).json({
+        success: false,
+        message: "This password is too common or weak. Please choose a stronger password.",
+      });
+    }
+
     // Check if new password contains user's first or last name
     const lowerPassword = newPassword.toLowerCase();
     if (user.fname && lowerPassword.includes(user.fname.toLowerCase())) {
@@ -582,9 +633,17 @@ exports.changePassword = async (req, res) => {
     user.password = hashedNewPassword;
     user.passwordHistory = updatedHistory;
     user.passwordLastUpdated = Date.now();
+    user.securityStamp = Date.now(); // Update security stamp to invalidate all tokens
     await user.save();
 
+    // Revoke all refresh sessions (force re-login on all devices)
+    await RefreshSession.updateMany(
+      { userId: user._id, revokedAt: null },
+      { revokedAt: new Date() }
+    );
+
     securityLogger.logPasswordChangeAttempt(userId.toString(), user.email, true);
+    securityLogger.logPasswordChanged(userId.toString(), user.email, req);
 
     return res.status(200).json({
       success: true,
@@ -621,15 +680,32 @@ exports.deleteAccount = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-    // Clear the authentication cookie immediately
-    // Use same attributes as when setting to ensure proper deletion
-    res.cookie('token', '', {
-        expires: new Date(0),
-        httpOnly: true,
-        sameSite: 'strict',
-        secure: process.env.NODE_ENV === "production"
-    });
-    res.status(200).json({ success: true, message: "Logged out successfully." });
+    try {
+      // Get refresh token from cookie
+      const refreshToken = req.cookies.refreshToken;
+      
+      if (refreshToken) {
+        // Hash and revoke the refresh session
+        const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+        const result = await RefreshSession.updateOne(
+          { refreshTokenHash, revokedAt: null },
+          { revokedAt: new Date() }
+        );
+        console.log('[LOGOUT] Session revoked - matched:', result.matchedCount, 'modified:', result.modifiedCount);
+      }
+
+      // Clear both cookies with identical options (must match set options exactly)
+      const authOptions = { ...getAuthCookieOptions(), expires: new Date(0) };
+      const refreshOptions = { ...getRefreshCookieOptions(), expires: new Date(0) };
+
+      res.cookie('token', '', authOptions);
+      res.cookie('refreshToken', '', refreshOptions);
+      console.log('[LOGOUT] Cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite, 'secure:', authOptions.secure);
+      
+      res.status(200).json({ success: true, message: "Logged out successfully." });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+    }
 };
 
 exports.uploadProfileImage = async (req, res) => {
@@ -1049,6 +1125,15 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
+    // Check if password is a common/weak password
+    if (isCommonPassword(password)) {
+      securityLogger.logPasswordChangeAttempt(user._id.toString(), user.email, false, 'COMMON_PASSWORD');
+      return res.status(400).json({
+        success: false,
+        message: "This password is too common or weak. Please choose a stronger password.",
+      });
+    }
+
     // Check if new password contains user's first or last name
     const lowerPassword = password.toLowerCase();
     if (user.fname && lowerPassword.includes(user.fname.toLowerCase())) {
@@ -1104,6 +1189,321 @@ exports.resetPassword = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: `Server error: ${error.message}`,
+    });
+  }
+};
+
+/**
+ * @desc    Refresh access token using refresh token
+ * @route   POST /api/auth/refresh
+ * @access  Public (uses refresh token cookie)
+ */
+exports.refreshToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    
+    console.log('[REFRESH] Cookie present:', refreshToken ? 'yes' : 'no');
+
+    if (!refreshToken) {
+      console.log('[REFRESH] No refresh token provided');
+      return res.status(401).json({
+        success: false,
+        message: 'No refresh token provided'
+      });
+    }
+
+    // Hash the refresh token
+    const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const hashPrefix = refreshTokenHash.substring(0, 6);
+    console.log('[REFRESH] Hash prefix:', hashPrefix);
+
+    // Find the session
+    const session = await RefreshSession.findOne({ refreshTokenHash });
+
+    if (!session) {
+      console.log('[REFRESH] Session not found for hash:', hashPrefix);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid refresh token'
+      });
+    }
+
+    console.log('[REFRESH] Session found - revokedAt:', session.revokedAt ? 'yes' : 'no', 'expiresAt:', session.expiresAt);
+
+    // Check if session is revoked (REUSE DETECTION)
+    if (session.revokedAt) {
+      const ip = req.ip || req.connection.remoteAddress || 'unknown';
+      console.log('[REFRESH] Revoked session detected, revoking all sessions for user:', session.userId);
+      
+      // SECURITY: Revoke ALL sessions for this user
+      await RefreshSession.updateMany(
+        { userId: session.userId },
+        { revokedAt: new Date() }
+      );
+
+      // Clear cookies with identical options (must match set options exactly)
+      const authOptions = { ...getAuthCookieOptions(), expires: new Date(0) };
+      const refreshOptions = { ...getRefreshCookieOptions(), expires: new Date(0) };
+      res.cookie('token', '', authOptions);
+      res.cookie('refreshToken', '', refreshOptions);
+      console.log('[REFRESH] Cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite, 'secure:', authOptions.secure);
+
+      // Log the reuse attempt
+      securityLogger.logRefreshReuseDetected(session.userId.toString(), ip, req);
+
+      return res.status(401).json({
+        success: false,
+        message: 'Token reuse detected. All sessions have been revoked for security.'
+      });
+    }
+
+    // Check if session is expired
+    if (session.expiresAt < new Date()) {
+      console.log('[REFRESH] Session expired');
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token expired'
+      });
+    }
+
+    // Get user
+    const user = await User.findById(session.userId).populate('shops');
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or inactive'
+      });
+    }
+
+    // Generate new tokens (rotation)
+    const newAccessToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRE }
+    );
+
+    const newRefreshToken = crypto.randomBytes(64).toString('hex');
+    const newRefreshTokenHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+
+    // Revoke old session
+    session.revokedAt = new Date();
+    await session.save();
+
+    // Create new session
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    await RefreshSession.create({
+      userId: user._id,
+      refreshTokenHash: newRefreshTokenHash,
+      createdAt: new Date(),
+      lastUsedAt: new Date(),
+      expiresAt,
+      ip,
+      userAgent
+    });
+
+    // Set new cookies
+    const authOptions = getAuthCookieOptions();
+    const refreshOptions = getRefreshCookieOptions();
+
+    res.cookie('token', newAccessToken, authOptions);
+    res.cookie('refreshToken', newRefreshToken, refreshOptions);
+    console.log('[REFRESH] New tokens set - path:', authOptions.path, 'sameSite:', authOptions.sameSite);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Token refreshed successfully'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`
+    });
+  }
+};
+
+/**
+ * @desc    Logout from all devices
+ * @route   POST /api/auth/logout-all
+ * @access  Private
+ */
+exports.logoutAll = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Revoke all refresh sessions
+    const result = await RefreshSession.updateMany(
+      { userId, revokedAt: null },
+      { revokedAt: new Date() }
+    );
+    console.log('[LOGOUT-ALL] Revoked sessions - matched:', result.matchedCount, 'modified:', result.modifiedCount);
+
+    // Clear cookies with identical options (must match set options exactly)
+    const authOptions = { ...getAuthCookieOptions(), expires: new Date(0) };
+    const refreshOptions = { ...getRefreshCookieOptions(), expires: new Date(0) };
+
+    res.cookie('token', '', authOptions);
+    res.cookie('refreshToken', '', refreshOptions);
+    console.log('[LOGOUT-ALL] Cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite, 'secure:', authOptions.secure);
+
+    await logActivity({
+      req,
+      userId,
+      action: 'LOGOUT_ALL_DEVICES',
+      module: 'Auth',
+      metadata: { email: req.user.email }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out from all devices successfully'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`
+    });
+  }
+};
+
+/**
+ * @desc    Get all active sessions for current user
+ * @route   GET /api/auth/sessions
+ * @access  Private
+ */
+exports.getSessions = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const currentRefreshToken = req.cookies.refreshToken;
+    let currentRefreshTokenHash = null;
+
+    if (currentRefreshToken) {
+      currentRefreshTokenHash = crypto.createHash('sha256').update(currentRefreshToken).digest('hex');
+      console.log('[GET-SESSIONS] Current token hash prefix:', currentRefreshTokenHash.substring(0, 6));
+    } else {
+      console.log('[GET-SESSIONS] No current refresh token cookie');
+    }
+
+    // Get all active sessions
+    const sessions = await RefreshSession.find({
+      userId,
+      revokedAt: null,
+      expiresAt: { $gt: new Date() }
+    }).sort({ lastUsedAt: -1 });
+
+    console.log('[GET-SESSIONS] Found', sessions.length, 'active sessions');
+
+    // Mask IP and add isCurrent flag
+    const maskedSessions = sessions.map(session => {
+      const ipParts = session.ip.split('.');
+      const maskedIp = ipParts.length === 4 
+        ? `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.xxx`
+        : session.ip.substring(0, session.ip.length - 3) + 'xxx';
+
+      const isCurrent = session.refreshTokenHash === currentRefreshTokenHash;
+      console.log('[GET-SESSIONS] Session', session._id, '- hash prefix:', session.refreshTokenHash.substring(0, 6), 'isCurrent:', isCurrent);
+
+      return {
+        id: session._id,
+        createdAt: session.createdAt,
+        lastUsedAt: session.lastUsedAt,
+        ip: maskedIp,
+        userAgent: session.userAgent,
+        isCurrent: isCurrent
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: maskedSessions
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`
+    });
+  }
+};
+
+/**
+ * @desc    Revoke a specific session
+ * @route   DELETE /api/auth/sessions/:id
+ * @access  Private
+ */
+exports.revokeSession = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const sessionId = req.params.id;
+    const currentRefreshToken = req.cookies.refreshToken;
+
+    // Find the session
+    const session = await RefreshSession.findById(sessionId);
+
+    if (!session) {
+      console.log('[REVOKE] Session not found:', sessionId);
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Verify ownership
+    if (!session.userId.equals(userId)) {
+      console.log('[REVOKE] Ownership mismatch - session userId:', session.userId, 'request userId:', userId);
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to revoke this session'
+      });
+    }
+
+    // Check if this is the current session
+    let isCurrentSession = false;
+    if (currentRefreshToken) {
+      const currentRefreshTokenHash = crypto.createHash('sha256').update(currentRefreshToken).digest('hex');
+      isCurrentSession = session.refreshTokenHash === currentRefreshTokenHash;
+      console.log('[REVOKE] Current token hash prefix:', currentRefreshTokenHash.substring(0, 6), 'session hash prefix:', session.refreshTokenHash.substring(0, 6), 'isCurrent:', isCurrentSession);
+    }
+
+    // Revoke the session
+    session.revokedAt = new Date();
+    await session.save();
+    console.log('[REVOKE] Session revoked - revokedAt set:', session.revokedAt);
+
+    await logActivity({
+      req,
+      userId,
+      action: 'SESSION_REVOKED',
+      module: 'Auth',
+      metadata: { sessionId, isCurrent: isCurrentSession }
+    });
+
+    // If revoking current session, clear cookies with identical options
+    if (isCurrentSession) {
+      const authOptions = { ...getAuthCookieOptions(), expires: new Date(0) };
+      const refreshOptions = { ...getRefreshCookieOptions(), expires: new Date(0) };
+
+      res.cookie('token', '', authOptions);
+      res.cookie('refreshToken', '', refreshOptions);
+      console.log('[REVOKE] Current session - cookies cleared - path:', authOptions.path, 'sameSite:', authOptions.sameSite);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Current session revoked. You have been logged out.',
+        isCurrentSession: true
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Session revoked successfully',
+      isCurrentSession: false
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: `Server error: ${error.message}`
     });
   }
 };

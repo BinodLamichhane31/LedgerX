@@ -104,6 +104,10 @@ const userSchema = new mongoose.Schema(
         tempSecret: { type: String },
         recoveryCodes: [{ type: String }], 
         lastTotpStep: { type: Number } 
+    },
+    securityStamp: {
+      type: Date,
+      default: Date.now
     }
   },
   {

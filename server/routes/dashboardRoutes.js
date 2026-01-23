@@ -1,9 +1,9 @@
 const express = require("express");
 const { protect } = require("../middlewares/authMiddleware");
-const { reportLimiter } = require('../middlewares/rateLimiter');
+const { dashboardLimiter } = require('../middlewares/rateLimiter');
 const { getDashboardStats, getChartData } = require("../controllers/dashboardController");
 const router = express.Router();
-router.use(reportLimiter);
+router.use(dashboardLimiter);
 router.get(
     '/stats',
     protect,
