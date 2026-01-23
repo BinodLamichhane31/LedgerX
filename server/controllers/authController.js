@@ -12,10 +12,11 @@ const crypto = require('crypto');
 const axios = require('axios');
 const { matchedData } = require("express-validator");
 const sendEmail = require("../utils/sendEmail");
-const { validateImageFile } = require("../utils/fileValidation");
+
 const speakeasy = require("speakeasy");
 const { decrypt } = require("../utils/encryption");
 const { getAuthCookieOptions, getRefreshCookieOptions } = require("../utils/cookieOptions");
+const { deleteFromCloudinary } = require("../utils/cloudinary");
 
 const sendTokenToResponse = async (user, statusCode, res, currentShop, req) =>{
   // Generate access token (short-lived)
@@ -665,6 +666,19 @@ exports.deleteAccount = async (req, res) => {
   const userId = req.user._id;
 
   try {
+    const user = await User.findById(userId);
+    if (!user) {
+        return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    // Delete profile image from Cloudinary if it exists
+    if (user.profileImageId) {
+        await deleteFromCloudinary(user.profileImageId);
+    }
+    
+    // Deletion of product images associated with user should ideally handle here or via database hooks
+    // For now, focusing on user profile image
+
     await User.findByIdAndDelete(userId);
     return res.status(200).json({
       success: true,
@@ -710,29 +724,32 @@ exports.uploadProfileImage = async (req, res) => {
 
   try {
     if(!req.file){
-      res.status(400).json({
-        success: false,
-        message:"No image file uploaded."
-      })
-    }
-
-    const relativePath = path.join("uploads",req.file.filename)
-    const absolutePath = path.join(__dirname, "..", relativePath);
-
-    // Validate magic bytes
-    const validationResult = await validateImageFile(absolutePath);
-    if (!validationResult.isValid) {
-      // Delete the invalid file
-      fs.unlinkSync(absolutePath);
       return res.status(400).json({
         success: false,
-        message: validationResult.error || "Invalid file content."
+        message:"No image file uploaded."
       });
     }
 
+    // req.file now contains Cloudinary data from middleware
+    // We no longer need to validate magic bytes here as sharp has already processed it
+    const secureUrl = req.file.cloudinaryUrl; // Use secure_url from Cloudinary
+    const publicId = req.file.cloudinaryPublicId; 
+
+    // Find user to get old image ID
+    const user = await User.findById(userId);
+
+    // Delete old image from Cloudinary if it exists
+    if (user.profileImageId) {
+      await deleteFromCloudinary(user.profileImageId);
+    }
+
+    // Update user with new image
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { profileImage: relativePath },
+      { 
+        profileImage: secureUrl,
+        profileImageId: publicId
+      },
       { new: true}
     ).select("-password");
 
@@ -741,7 +758,7 @@ exports.uploadProfileImage = async (req, res) => {
         userId,
         action: 'PROFILE_IMAGE_UPDATE',
         module: 'Auth',
-        metadata: { filename: req.file.filename, detectedType: validationResult.detectedType }
+        metadata: { publicId: publicId }
     });
 
     return res.status(200).json({
@@ -757,11 +774,7 @@ exports.uploadProfileImage = async (req, res) => {
   }
 };
 
-exports.viewProfileImage = (req, res) => {
-  const filename = req.params.filename;
-  const imagePath = path.join(__dirname, "..", "uploads", filename);
-  res.sendFile(imagePath);
-};
+
 
 exports.verifyMFA = async (req, res) => {
     const { code, recoveryCode } = req.body;

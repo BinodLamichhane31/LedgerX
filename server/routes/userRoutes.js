@@ -1,5 +1,5 @@
 const express = require('express')
-const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, viewProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback, forgotPassword, resetPassword, verifyMFA, refreshToken, logoutAll, getSessions, revokeSession } = require('../controllers/authController')
+const { registerUser, loginUser, getProfile, updateProfile, changePassword, deleteAccount, logout, uploadProfileImage, selectShop, checkPasswordExpiration, googleOAuthInitiate, googleOAuthCallback, forgotPassword, resetPassword, verifyMFA, refreshToken, logoutAll, getSessions, revokeSession } = require('../controllers/authController')
 const { registerValidation, loginValidation, changePasswordValidation, updateProfileValidation, resetPasswordValidation } = require('../validator/authValidator')
 const validate = require('../middlewares/validate')
 const loginLimiter = require('../middlewares/loginLimiter')
@@ -83,10 +83,7 @@ router.put(
   upload.processImage,  // SECURITY: Re-encode, resize, strip metadata
   uploadProfileImage
 )
-router.get(
-  "/uploads/:filename", 
-  viewProfileImage
-);
+
 
 router.get(
   "/check-password-expiration",

@@ -3,6 +3,7 @@ const { logActivity } = require('../services/activityLogger');
 const Shop = require('../models/Shop');
 const path = require('path');
 const fs = require("fs");
+const { deleteFromCloudinary } = require("../utils/cloudinary");
 
 
 const verifyShopOwner = async (shopId, userId) => {
@@ -39,7 +40,8 @@ exports.addProduct = async (req, res) => {
         });
 
          if (req.file) {
-            newProduct.image = `/uploads/${req.file.filename}`;
+            newProduct.image = req.file.cloudinaryUrl;
+            newProduct.imageId = req.file.cloudinaryPublicId;
         }
 
         await newProduct.save();
@@ -59,6 +61,9 @@ exports.addProduct = async (req, res) => {
         });
 
     } catch (error) {
+        if (req.file && req.file.cloudinaryPublicId) {
+             await deleteFromCloudinary(req.file.cloudinaryPublicId);
+        }
         res.status(500).json({ success: false, message: 'Server Error: ' + error.message });
     }
 };
@@ -133,8 +138,8 @@ exports.updateProduct = async (req, res) => {
 
         const { error, status } = await verifyShopOwner(product.shopId, req.user._id);
         if (error) {
-            if (req.file) {
-                fs.unlinkSync(req.file.path);
+            if (req.file && req.file.cloudinaryPublicId) {
+                await deleteFromCloudinary(req.file.cloudinaryPublicId);
             }
             return res.status(status).json({ success: false, message: error });
         }
@@ -142,13 +147,11 @@ exports.updateProduct = async (req, res) => {
         delete updates.shopId;
 
         if (req.file) {
-            if (product.image) {
-                const oldImagePath = path.join(__dirname, '..', product.image);
-                if (fs.existsSync(oldImagePath)) {
-                    fs.unlinkSync(oldImagePath);
-                }
+            if (product.imageId) {
+                await deleteFromCloudinary(product.imageId);
             }
-            updates.image = `/uploads/${req.file.filename}`;
+            updates.image = req.file.cloudinaryUrl;
+            updates.imageId = req.file.cloudinaryPublicId;
         }
 
         const updatedProduct = await Product.findByIdAndUpdate(productId, { $set: updates }, { new: true, runValidators: true });
@@ -168,6 +171,9 @@ exports.updateProduct = async (req, res) => {
         });
 
     } catch (error) {
+        if (req.file && req.file.cloudinaryPublicId) {
+             await deleteFromCloudinary(req.file.cloudinaryPublicId);
+        }
         res.status(500).json({ success: false, message: 'Server Error: ' + error.message });
     }
 };
@@ -189,11 +195,8 @@ exports.deleteProduct = async (req, res) => {
         
         
 
-        if (product.image) {
-            const imagePath = path.join(__dirname, '..', product.image);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-            }
+        if (product.imageId) {
+            await deleteFromCloudinary(product.imageId);
         }
         
         await Product.findByIdAndDelete(productId);

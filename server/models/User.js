@@ -63,6 +63,9 @@ const userSchema = new mongoose.Schema(
       type:String,
       default:""
     },
+    profileImageId: { // Cloudinary public_id
+      type: String
+    },
     shops: [
       {
         type: mongoose.Schema.Types.ObjectId,

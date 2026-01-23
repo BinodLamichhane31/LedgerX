@@ -15,16 +15,12 @@ import { useGetProfile } from '../../hooks/auth/useProfile';
 import ShopFormModal from '../shop/ShopFormModal';
 import ConfirmLogoutModal from '../ui/ConfirmLogoutModal';
 
+import { getBackendImageUrl } from '../../utils/backendImage';
+
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:6060/api";
 
 const ProfileSection = ({ user, logout }) => {
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
-    const filename = imagePath.split('/').pop();
-    return `${API_URL}/uploads/${filename}`;
-  };
-
-  const imageUrl = getImageUrl(user?.profileImage);
+  const imageUrl = getBackendImageUrl(user?.profileImage);
 
   const handleLogout = () => {
     // Call logout directly from context - no API call needed

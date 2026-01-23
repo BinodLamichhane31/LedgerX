@@ -30,6 +30,7 @@ import {
 import { useGetProfile } from '../hooks/auth/useProfile';
 import { useDisableMFA } from '../hooks/auth/useTwoFactor';
 import { useGetPaymentHistory } from '../hooks/usePayment';
+import { getBackendImageUrl } from '../utils/backendImage';
 
 import MFASetupModal from '../components/auth/MFASetupModal';
 import DisableMFADialog from '../components/auth/DisableMFADialog';
@@ -78,13 +79,7 @@ const ProfilePage = () => {
     }
   }, [currentUser, dbProfile, user, setUser]);
 
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
-    const filename = imagePath.split(/[/\\]/).pop();
-    return `${API_URL}/uploads/${filename}`;
-  };
-
-  const imageUrl = getImageUrl(currentUser?.profileImage);
+  const imageUrl = getBackendImageUrl(currentUser?.profileImage);
 
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
@@ -130,7 +125,8 @@ const ProfilePage = () => {
       setUser(response.data);
       toast.success('Profile image updated');
     } catch (error) {
-      toast.error("Could not upload image.");
+      const errorMessage = error.message || "Could not upload image.";
+      toast.error(errorMessage);
     } finally {
       setIsUploading(false);
     }

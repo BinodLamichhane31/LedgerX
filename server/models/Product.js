@@ -38,7 +38,8 @@ const productSchema = new mongoose.Schema({
         required: true,
         index: true,
     },
-    image: { type: String, required: false } 
+    image: { type: String, required: false },
+    imageId: { type: String, required: false } // Cloudinary public_id 
 }, { timestamps: true });
 
 module.exports = mongoose.model('Product', productSchema);

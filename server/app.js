@@ -152,7 +152,7 @@ app.use((err, req, res, next) => {
   }
 
   // Image processing error (from sharp/processImage middleware)
-  if (err.message === 'Invalid or corrupted image file') {
+  if (err.message === 'Invalid or corrupted image file, or upload failed') {
     return res.status(400).json({ 
       success: false, 
       message: 'The uploaded image is corrupted or invalid. Please try a different image.' 

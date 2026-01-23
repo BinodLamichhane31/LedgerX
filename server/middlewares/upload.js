@@ -1,19 +1,8 @@
 const multer = require("multer");
-const { v4: uuidv4 } = require("uuid");
-const path = require("path");
-const fs = require("fs");
 const sharp = require("sharp");
+const { uploadToCloudinary } = require("../utils/cloudinary");
 
-const uploadPath = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath);
-}
 
-// ============================================================================
-// SECURITY: Memory Storage for Image Re-encoding
-// ============================================================================
-// Use memoryStorage to receive files as buffers for processing
-// Images will be decoded, resized, metadata-stripped, and re-encoded
 const storage = multer.memoryStorage();
 
 const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
@@ -31,37 +20,34 @@ const upload = multer({
   fileFilter
 });
 
-// ============================================================================
-// SECURITY: Image Re-encoding Middleware
-// ============================================================================
-// Decode, resize, strip metadata (EXIF/GPS), and re-encode uploaded images
+
 const processImage = async (req, res, next) => {
   if (!req.file) {
     return next();
   }
 
   try {
-    const filename = `${req.file.fieldname}-${uuidv4()}.jpg`;
-    const filepath = path.join(uploadPath, filename);
-
-    // Decode, resize, strip metadata, and re-encode
-    await sharp(req.file.buffer)
+    const processedBuffer = await sharp(req.file.buffer)
       .resize(512, 512, {
-        fit: 'inside',           // Maintain aspect ratio, max 512x512
-        withoutEnlargement: true // Don't upscale small images
+        fit: 'inside',           
+        withoutEnlargement: true 
       })
-      .jpeg({ quality: 85 })     // Convert to JPEG, good quality
-      .toFile(filepath);         // Sharp strips metadata by default
+      .jpeg({ quality: 85 })     
+      .toBuffer();               
+    
+    const folder = req.baseUrl.includes('auth') ? 'ledgerx/profiles' : 'ledgerx/products';
+    const result = await uploadToCloudinary(processedBuffer, folder);
 
-    // Update req.file with processed image info
-    req.file.filename = filename;
-    req.file.path = filepath;
-    req.file.mimetype = 'image/jpeg';
+    req.file.cloudinaryUrl = result.secure_url;
+    req.file.cloudinaryPublicId = result.public_id;
+    
+    req.file.filename = result.public_id; 
+    req.file.path = result.secure_url;
 
     next();
   } catch (error) {
-    // Image decoding failed - likely malformed or malicious
-    return next(new Error('Invalid or corrupted image file'));
+    console.error('Image processing/upload error:', error);
+    return next(new Error('Invalid or corrupted image file, or upload failed'));
   }
 };
 
@@ -69,5 +55,5 @@ module.exports = {
   single: (fieldname) => upload.single(fieldname),
   array: (fieldname, maxCount) => upload.array(fieldname, maxCount),
   fields: (fieldsArray) => upload.fields(fieldsArray),
-  processImage  // Export image processing middleware
+  processImage  
 };
