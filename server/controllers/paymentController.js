@@ -1,118 +1,159 @@
-const crypto = require('crypto');
+const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 
 exports.initiateSubscriptionPayment = async (req, res) => {
     try {
+        const { plan } = req.body;
         const user = await User.findById(req.user._id);
-        if (user.subscription.plan === 'PRO') {
+
+        if (!['BASIC', 'PRO'].includes(plan)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid plan selected. Choose 'BASIC' or 'PRO'."
+            });
+        }
+
+        if (user.subscription.plan === plan && user.subscription.status === 'ACTIVE') {
             return res.status(400).json({ 
                 success: false, 
-                message: "You are already on the Pro plan." 
+                message: `You are already on the ${plan} plan.` 
             });
         }
 
         const transactionUUID = uuidv4();
-        const productCode = "HISAB_PRO";
-        const amount = 10; 
+        // Amount in Paisa (1 NPR = 100 Paisa)
+        // Basic: 500 NPR = 50000 Paisa
+        // Pro: 1000 NPR = 100000 Paisa
+        const amountNpr = plan === 'BASIC' ? 500 : 1000;
+        const amountPaisa = amountNpr * 100;
         
-        await Payment.create({
+        const purchase_order_id = transactionUUID;
+        const purchase_order_name = `Ledger X ${plan} Subscription`;
+
+        const payment = await Payment.create({
             user: user._id,
             transactionUUID,
-            productCode,
-            amount,
+            productCode: plan,
+            amount: amountNpr,
             status: 'PENDING'
         });
 
-        const paymentDetails = {
-            tAmt: amount.toString(),           // Total amount
-            amt: amount.toString(),            // Amount
-            txAmt: "0",                       // Tax amount
-            psc: "0",                         // Product service charge
-            pdc: "0",                         // Product delivery charge
-            pid: transactionUUID,             // Product ID (use transaction UUID)
-                        scd: process.env.ESEWA_MERCHANT_CODE,
-            su: `${process.env.CLIENT_WEB_URL}/payment/success`,
-            fu: `${process.env.CLIENT_WEB_URL}/payment/failure`,
-            
-            // Form action URL
-            payment_url: `${process.env.ESEWA_WEB_API_URL}`
+        const payload = {
+            return_url: `${process.env.CLIENT_WEB_URL}/payment/success`,
+            website_url: process.env.CLIENT_WEB_URL,
+            amount: amountPaisa,
+            purchase_order_id: purchase_order_id,
+            purchase_order_name: purchase_order_name,
+            customer_info: {
+                name: `${user.fname} ${user.lname}`,
+                email: user.email,
+                phone: user.phone || '9800000000'
+            }
         };
-        
-        res.status(200).json({
-            success: true,
-            message: "Payment initiation details generated.",
-            paymentDetails: paymentDetails
-        });
+
+        const khaltiResponse = await axios.post(
+            'https://a.khalti.com/api/v2/epayment/initiate/',
+            payload,
+            {
+                headers: {
+                    'Authorization': `Key ${process.env.KHALTI_SECRET_KEY}`,
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
+
+        if (khaltiResponse.data) {
+            payment.khaltiPidx = khaltiResponse.data.pidx;
+            await payment.save();
+
+            res.status(200).json({
+                success: true,
+                message: "Payment initiated.",
+                payment_url: khaltiResponse.data.payment_url,
+                pidx: khaltiResponse.data.pidx
+            });
+        } else {
+            throw new Error('Failed to initiate payment with Khalti');
+        }
 
     } catch (error) {
-        console.error('Payment initiation error:', error);
+        console.error('Payment initiation error:', error.response?.data || error.message);
         res.status(500).json({ 
             success: false, 
-            message: 'Server Error: ' + error.message 
+            message: 'Server Error: ' + (error.response?.data?.detail || error.message) 
         });
     }
 };
 
 exports.verifySubscriptionPayment = async (req, res) => {
     try {
-        console.log(req.body);
-        
-        // eSewa sends data as query parameters in the success URL
-        const { oid, amt, refId } = req.body;
+        const { pidx } = req.body;
 
-        if (!oid || !refId) {
+        if (!pidx) {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Missing required payment verification data.' 
+                message: 'Missing pidx for verification.' 
             });
         }
 
-        const paymentRecord = await Payment.findOne({ 
-            transactionUUID: oid,
-            status: 'PENDING'
-        });
+        const paymentRecord = await Payment.findOne({ khaltiPidx: pidx });
         
         if (!paymentRecord) {
             return res.status(404).json({ 
                 success: false, 
-                message: 'Invalid or already processed transaction.' 
+                message: 'Payment record not found.' 
             });
         }
 
-        const verificationUrl = `https://rc.esewa.com.np/epay/transrec`;
-        const verificationData = {
-            amt: paymentRecord.amount,
-            pid: oid,
-            rid: refId,
-            scd: process.env.ESEWA_MERCHANT_CODE
-        };
+        const khaltiResponse = await axios.post(
+            'https://a.khalti.com/api/v2/epayment/lookup/',
+            { pidx },
+            {
+                headers: {
+                    'Authorization': `Key ${process.env.KHALTI_SECRET_KEY}`,
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
 
+        const { status, total_amount, transaction_id } = khaltiResponse.data;
 
-        const user = await User.findById(paymentRecord.user);
-        if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'User not found.' 
+        if (status === 'Completed') {
+            const user = await User.findById(paymentRecord.user);
+            if (!user) {
+                return res.status(404).json({ success: false, message: 'User not found.' });
+            }
+
+            // Update User Subscription
+            user.subscription.plan = paymentRecord.productCode; // 'BASIC' or 'PRO'
+            user.subscription.status = 'ACTIVE';
+            user.subscription.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 Year
+            await user.save();
+
+            // Update Payment Record
+            paymentRecord.status = 'COMPLETE';
+            paymentRecord.khaltiTransactionId = transaction_id;
+            await paymentRecord.save();
+
+            console.log('Payment verification successful:', user.email);
+
+            res.status(200).json({
+                success: true,
+                message: `Successfully upgraded to ${paymentRecord.productCode} plan.`,
+                plan: user.subscription.plan
             });
+        } else {
+             // Handle Failed/Pending/etc
+             paymentRecord.status = status.toUpperCase(); // REFUNDED, EXPIRED, etc.
+             await paymentRecord.save();
+             
+             res.status(400).json({
+                success: false,
+                message: 'Payment verification failed. Status: ' + status
+             });
         }
-
-        user.subscription.plan = 'PRO';
-        user.subscription.status = 'ACTIVE';
-        user.subscription.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-        await user.save();
-
-        paymentRecord.status = 'COMPLETE';
-        paymentRecord.esewaTransactionCode = refId;
-        await paymentRecord.save();
-        
-        console.log('Payment verification successful for user:', user._id);
-        
-        res.status(200).json({
-            success: true,
-            message: 'Congratulations! Your account has been upgraded to the Pro plan.',
-        });
 
     } catch (error) {
         console.error('Payment verification error:', error);
