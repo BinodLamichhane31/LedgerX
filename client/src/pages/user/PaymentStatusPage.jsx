@@ -31,26 +31,22 @@ const PaymentStatusPage = () => {
         
         // Handle success verification
         if (window.location.pathname.includes('/success')) {
-            const oid = searchParams.get('oid');
-            const amt = searchParams.get('amt');
-            const refId = searchParams.get('refId');            
+            const pidx = searchParams.get('pidx');       
+            const status = searchParams.get('status');
 
-            if (oid && amt && refId) {
+            // Also check for status if available from Khalti redirect (usually 'Completed' or similar)
+            // But we mainly rely on verification API.
+            
+            if (pidx) {
                 verificationTriggered.current = true;
-                setPageStatus('success')
+                setPageStatus('pending') // Keep pending until verified by our backend
                 
-                // We pass component-specific logic into the mutate function's options.
-                // This is the key to solving the problem.
                 verifyPayment(
-                    { oid, amt, refId }, 
+                    { pidx }, 
                     {
-                        onSuccess: async () => {
-                            // 1. Set our persistent UI state to 'success'.
-                            //    Now, even if a re-render happens, this state is saved.
+                        onSuccess: async (data) => {
                             setPageStatus('success');
-                            
                             try {
-                                // 2. Perform actions that cause re-renders.
                                 const { data: updatedUserData } = await refetchProfile();
                                 if (updatedUserData) {
                                     login({ data: updatedUserData });
@@ -58,18 +54,15 @@ const PaymentStatusPage = () => {
                             } catch (e) {
                                 console.error("Failed to update profile after payment:", e);
                             } finally {
-                                // 3. Navigate away after a delay.
                                 setTimeout(() => navigate('/subscription'), 3000);
                             }
                         },
                         onError: () => {
-                            // If the verification API itself fails, update the UI state.
                             setPageStatus('error');
                         }
                     }
                 );
             } else {
-                // If the URL parameters are missing, it's an error.
                 setPageStatus('error');
             }
         }

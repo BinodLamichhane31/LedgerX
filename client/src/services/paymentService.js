@@ -1,8 +1,8 @@
 import { initiateSubscriptionApi, verifySubscriptionApi } from '../api/paymentApi';
 
-export const initiateSubscriptionService = async () => {
+export const initiateSubscriptionService = async (plan) => {
     try {
-        const response = await initiateSubscriptionApi();
+        const response = await initiateSubscriptionApi(plan);
         return response.data;
     } catch (error) {
         throw error.response?.data || { message: 'Failed to start payment process.' };

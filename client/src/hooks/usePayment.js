@@ -3,52 +3,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { initiateSubscriptionService, verifySubscriptionService } from '../services/paymentService';
 
-// Updated eSewa form submission function
-const postToEsewa = (paymentDetails) => {
-    const form = document.createElement('form');
-    form.setAttribute('method', 'POST');
-    form.setAttribute('action', paymentDetails.payment_url);
-    form.setAttribute('target', '_self');
-
-    // eSewa required fields with correct names
-    const fields = {
-        tAmt: paymentDetails.tAmt,           // Total amount
-        amt: paymentDetails.amt,             // Amount  
-        txAmt: paymentDetails.txAmt,         // Tax amount
-        psc: paymentDetails.psc,             // Product service charge
-        pdc: paymentDetails.pdc,             // Product delivery charge
-        pid: paymentDetails.pid,             // Product ID
-        scd: paymentDetails.scd,             // Merchant code
-        su: paymentDetails.su,               // Success URL
-        fu: paymentDetails.fu                // Failure URL
-    };
-
-    // Create hidden form fields
-    Object.keys(fields).forEach(key => {
-        if (fields[key] !== undefined) {
-            const hiddenField = document.createElement('input');
-            hiddenField.setAttribute('type', 'hidden');
-            hiddenField.setAttribute('name', key);
-            hiddenField.setAttribute('value', fields[key]);
-            form.appendChild(hiddenField);
-        }
-    });
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-};
-
 export const useInitiateSubscription = () => {
     return useMutation({
-        mutationFn: initiateSubscriptionService,
+        mutationFn: (plan) => initiateSubscriptionService(plan),
         onSuccess: (data) => {
-            toast.info("Redirecting to eSewa for payment...");
-            
-            // Small delay to ensure toast is shown
-            setTimeout(() => {
-                postToEsewa(data.paymentDetails);
-            }, 1000);
+            if (data.payment_url) {
+                toast.info("Redirecting to Khalti for payment...");
+                window.location.href = data.payment_url;
+            } else {
+                 toast.error("Failed to get payment URL.");
+            }
         },
         onError: (error) => {
             toast.error(error.message || "Could not start the payment process.");

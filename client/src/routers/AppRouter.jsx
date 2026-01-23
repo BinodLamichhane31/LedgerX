@@ -36,6 +36,8 @@ import SubscriptionPage from "../pages/user/SubscriptionPage";
 import PaymentStatusPage from "../pages/user/PaymentStatusPage";
 import ShopManagementPage from "../pages/user/ShopManagementPage";
 import ProfilePage from "../pages/ProfilePage";
+import RevenuePage from "../pages/admin/RevenuePage";
+import SubscriptionManagementPage from "../pages/admin/SubscriptionManagementPage";
 
 function AppRouter() {
   const { user, loading, isLoggingOut } = useContext(AuthContext);
@@ -86,7 +88,6 @@ function AppRouter() {
         </Route>
 
         {/* ---------------- PRIVATE USER ROUTES ---------------- */}
-        {/* ---------------- PRIVATE USER ROUTES ---------------- */}
         <Route element={<RoleBasedRoute allowedRoles={['user']} />}>
           {/* Routes WITH the Dashboard Layout */}
           <Route element={<DashboardLayout />}>
@@ -112,6 +113,7 @@ function AppRouter() {
           {/* Route WITHOUT the Dashboard Layout (but still private) */}
           <Route path="/create-first-shop" element={<CreateFirstShop />} />
           <Route path="/payment/failure" element={<PaymentStatusPage />} />
+          <Route path="/payment/success" element={<PaymentStatusPage />} />
         </Route>
 
         {/* ----------------- PRIVATE ADMIN ROUTES ----------------- */}
@@ -120,6 +122,8 @@ function AppRouter() {
             <Route path="/admin/dashboard" element={<AdminDashboard/>} />
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/activity-logs" element={<ActivityLogs />} />
+            <Route path="/admin/revenue" element={<RevenuePage />} />
+            <Route path="/admin/subscriptions" element={<SubscriptionManagementPage />} />
           </Route>
         </Route>
 

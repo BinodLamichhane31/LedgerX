@@ -3,6 +3,31 @@ import { X, Lock, KeyRound, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import PasswordStrengthMeter from '../common/PasswordStrengthMeter';
 
+const PasswordInput = ({ label, name, value, show, onToggle, placeholder, onChange, isLoading }) => (
+    <div className="space-y-2">
+        <label className="text-sm font-semibold text-slate-700">{label}</label>
+        <div className="relative">
+            <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+                type={show ? "text" : "password"}
+                name={name}
+                value={value}
+                onChange={onChange}
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                placeholder={placeholder}
+                disabled={isLoading}
+            />
+            <button
+                type="button"
+                onClick={() => onToggle(name.replace('Password', ''))}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+                {show ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+        </div>
+    </div>
+);
+
 const ChangePasswordDialog = ({ isOpen, onClose, onConfirm, isLoading }) => {
     const [passwordData, setPasswordData] = useState({
         currentPassword: '',
@@ -56,31 +81,6 @@ const ChangePasswordDialog = ({ isOpen, onClose, onConfirm, isLoading }) => {
 
     if (!isOpen) return null;
 
-    const PasswordInput = ({ label, name, value, show, onToggle, placeholder }) => (
-        <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">{label}</label>
-            <div className="relative">
-                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                    type={show ? "text" : "password"}
-                    name={name}
-                    value={value}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
-                    placeholder={placeholder}
-                    disabled={isLoading}
-                />
-                <button
-                    type="button"
-                    onClick={() => onToggle(name.replace('Password', ''))}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                    {show ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-            </div>
-        </div>
-    );
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="relative w-full max-w-md bg-white shadow-2xl rounded-2xl overflow-hidden">
@@ -111,6 +111,8 @@ const ChangePasswordDialog = ({ isOpen, onClose, onConfirm, isLoading }) => {
                             show={showPasswords.current}
                             onToggle={() => togglePasswordVisibility('current')}
                             placeholder="••••••••"
+                            onChange={handleChange}
+                            isLoading={isLoading}
                         />
 
                         <div className="space-y-4 border-t border-slate-100 pt-4">
@@ -121,6 +123,8 @@ const ChangePasswordDialog = ({ isOpen, onClose, onConfirm, isLoading }) => {
                                 show={showPasswords.new}
                                 onToggle={() => togglePasswordVisibility('new')}
                                 placeholder="••••••••"
+                                onChange={handleChange}
+                                isLoading={isLoading}
                             />
                             
                             <PasswordStrengthMeter password={passwordData.newPassword} />
@@ -132,6 +136,8 @@ const ChangePasswordDialog = ({ isOpen, onClose, onConfirm, isLoading }) => {
                                 show={showPasswords.confirm}
                                 onToggle={() => togglePasswordVisibility('confirm')}
                                 placeholder="••••••••"
+                                onChange={handleChange}
+                                isLoading={isLoading}
                             />
                         </div>
 
