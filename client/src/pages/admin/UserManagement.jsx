@@ -16,6 +16,7 @@ const UserManagement = () => {
   const [deletingUser, setDeletingUser] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const { user: currentUser } = useAuthContext();
+  const navigate = useNavigate();
   
   const { 
     data, isLoading, isError,

@@ -1,9 +1,11 @@
 const Supplier = require("../models/Supplier");
 const Shop = require("../models/Shop");
+const User = require("../models/User");
 const Purchase = require("../models/Purchase");
 const logger = require("../utils/logger");
 const Transaction = require("../models/Transaction");
 const { logActivity } = require("../services/activityLogger");
+const { canAddEntity, getUpgradeMessage } = require("../utils/planLimits");
 
 exports.addSupplier = async (req, res) =>{
     try {        
@@ -40,6 +42,19 @@ exports.addSupplier = async (req, res) =>{
                 success: false,
                 message: "Supplier with this phone is already registered in this shop."
             })
+        }
+
+        // Check plan limits
+        const user = await User.findById(userId);
+        const currentSupplierCount = await Supplier.countDocuments({ shop: shopId });
+        const userPlan = user.subscription.plan;
+        
+        const limitCheck = canAddEntity(userPlan, 'suppliers', currentSupplierCount);
+        if (!limitCheck.allowed) {
+            return res.status(403).json({
+                success: false,
+                message: getUpgradeMessage('suppliers', userPlan)
+            });
         }
 
         const newSupplier = await Supplier({

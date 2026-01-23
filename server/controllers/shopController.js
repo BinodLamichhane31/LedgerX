@@ -2,6 +2,7 @@ const { log } = require("winston");
 const Shop = require("../models/Shop");
 const User = require("../models/User");
 const { logActivity } = require("../services/activityLogger");
+const { canAddEntity, getUpgradeMessage } = require("../utils/planLimits");
 
 
 exports.createShop = async (req, res) =>{
@@ -18,10 +19,13 @@ exports.createShop = async (req, res) =>{
         const user = await User.findById(userId).populate('shops');
         const currentShopCount = user.shops.length;
         const userPlan = user.subscription.plan;
-        if (userPlan === 'FREE' && currentShopCount >= 2) {
+        
+        // Check plan limits
+        const limitCheck = canAddEntity(userPlan, 'shops', currentShopCount);
+        if (!limitCheck.allowed) {
             return res.status(403).json({
                 success: false,
-                message: "You have reached the 2-shop limit for the Free plan. Please upgrade to Pro to add more shops."
+                message: getUpgradeMessage('shops', userPlan)
             });
         }
 
